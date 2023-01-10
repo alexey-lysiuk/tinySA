@@ -619,7 +619,9 @@ void reset_settings(int m)
 //  setting.atten_step = 0;     moved to top
 #endif
   setting.agc = S_AUTO_ON;
-  setting.lna = S_AUTO_OFF;
+//  setting.lna = S_AUTO_OFF;
+  setting.lna = true;
+//  setting.agc = false;
   setting.tracking = false;
   setting.modulation = MO_NONE;
   setting.modulation_frequency = 1000;
@@ -704,7 +706,8 @@ void reset_settings(int m)
     setting.sweep_time_us = 2*ONE_SECOND_TIME;
     setting.step_delay_mode = SD_FAST;
 #ifdef TINYSA4
-    setting.extra_lna = false;
+//    setting.extra_lna = false;
+    setting.extra_lna = true;
 //    setting.correction_frequency = config.correction_frequency[CORRECTION_LOW_OUT];
 //    setting.correction_value = config.correction_value[CORRECTION_LOW_OUT];
 #else
@@ -745,6 +748,9 @@ void reset_settings(int m)
 //    level_range = level_max - level_min;
     break;
   }
+  setting.extra_lna = true;
+  setting.attenuate_x2 = 0;
+
   setting.level =  level_max();     // This is the level with above settings.
   markers_reset();
   setting._active_marker = 0;
@@ -4957,7 +4963,8 @@ static bool sweep(bool break_on_operation)
         plot_into_index(measured);
         redraw_request |= REDRAW_CELLS | REDRAW_BATTERY;
         // plot trace and other indications as raster
-        draw_all(true);  // flush markmap only if scan completed to prevent
+// zzz        
+//draw_all(true);  // flush markmap only if scan completed to prevent
       }
 
 

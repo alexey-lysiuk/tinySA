@@ -1,3 +1,4 @@
+// zzzzz
 /*
  *
  * This is free software; you can redistribute it and/or modify
@@ -24,6 +25,7 @@
 #include <chprintf.h>
 #include <string.h>
 #include <math.h>
+#include "asp_func.h"
 
 freq_t frequencyStart;
 freq_t frequencyStop;
@@ -140,9 +142,25 @@ static THD_FUNCTION(Thread1, arg)
 //#ifndef TINYSA4
 //  ui_process();
 //#endif
+#if 1    // zzzzz
+  freq_t freq_min = 2380000000UL;       // To use 2390 MHz video source near my location, use 2400 for WiFi
+  freq_t freq_max = 2500000000UL;
+  freq_t f0 = freq_min;
+  set_frequencies(f0,f0,sweep_points);
+  sweep_mode |= SWEEP_ENABLE;
+  sweep_mode |= SWEEP_UI_MODE;
+  graph_bottom = 0;     // for full-screen waterfall 
+  graph_bottom = 100;
+  ili9341_set_background(LCD_BG_COLOR);
+  ili9341_clear_screen();
+  set_sweep_points(POINTS_COUNT);    //
+#endif
 
   while (1) {
 //  START_PROFILE
+#if 1    // zzzzz
+     set_sweep_frequency(ST_CW, f0);
+#endif
     if (sweep_mode&(SWEEP_ENABLE|SWEEP_ONCE)) {
       backup_t b;
       b.frequency0 = setting.frequency0;
@@ -154,7 +172,7 @@ static THD_FUNCTION(Thread1, arg)
       if (setting.auto_reflevel || setting.unit != U_DBM)
         b.reflevel = 0;
       else
-      b.reflevel = setting.reflevel + 140;
+        b.reflevel = setting.reflevel + 140;
       if (setting.rbw_x10 == 0)
         b.RBW = 0;
       else
@@ -182,6 +200,8 @@ static THD_FUNCTION(Thread1, arg)
           sweep_once_count--;
         } else
           sweep_mode&=~SWEEP_ONCE;
+
+
       }
     } else if (sweep_mode & SWEEP_SELFTEST) {
       // call from lowest level to save stack space
@@ -209,6 +229,7 @@ static THD_FUNCTION(Thread1, arg)
         __WFI();
     }
 //  STOP_PROFILE
+#if 1
     // Run Shell command in sweep thread
     if (shell_function) {
       operation_requested = OP_NONE; // otherwise commands  will be aborted
@@ -253,8 +274,33 @@ static THD_FUNCTION(Thread1, arg)
         }
       }
     }
+#endif
+#if 0
+
     // plot trace and other indications as raster
     draw_all(completed);  // flush markmap only if scan completed to prevent
+#else
+// zzzzz
+    asp_save_file();
+    asp_update_band(f0/1000000UL);
+    f0 +=              10000000UL;
+    if (f0 >= freq_max)
+    {
+        f0 = freq_min;
+        ili9341_set_foreground(LCD_BRIGHT_COLOR_GREEN);
+        if (completed) 
+        {
+    //    update_level_meter();
+    //    draw_cal_status();                      // calculates the actual sweep time, must be before draw_frequencies
+    //    draw_frequencies();
+            draw_battery_status();
+            asp_update_waterfall();
+            //ili9341_drawstring_7x13("Scanning... ", 50, 10);
+            //ili9341_drawstring("zzzzzzzzzzz", 50, LCD_HEIGHT - FONT_GET_HEIGHT);
+        }
+    }
+#endif
+
                           // remaining traces
 //    STOP_PROFILE
   }
@@ -2243,10 +2289,10 @@ void shell_reset_console(void){
       sduConfigureHookI(&SDU1);
   }
   // Reset I/O queue over Serial
-//  oqResetI(&SD1.oqueue);
-//  iqResetI(&SD1.iqueue);
-  qResetI(&SD1.oqueue);
-  qResetI(&SD1.iqueue);
+  oqResetI(&SD1.oqueue);
+  iqResetI(&SD1.iqueue);
+//  qResetI(&SD1.oqueue);
+//  qResetI(&SD1.iqueue);
 
 }
 
@@ -2687,6 +2733,9 @@ int main(void)
 #ifdef __ULTRA__
   else
     ultra_start = (config.ultra_start == ULTRA_AUTO ? DEFAULT_ULTRA_THRESHOLD : config.ultra_start);
+  // zzzzz
+  config.ultra = true;
+  setting.lna = 1;
 #endif
 
 

@@ -33,10 +33,10 @@ uint16_t graph_bottom = CHART_BOTTOM;
 static void cell_draw_marker_info(int x0, int y0);
 static void cell_grid_line_info(int x0, int y0);
 static void cell_blit_bitmap(int x, int y, uint16_t w, uint16_t h, const uint8_t *bitmap);
-static void draw_battery_status(void);
-static void update_waterfall(void);
+/*static */void draw_battery_status(void);
+/*static */void update_waterfall(void);
 #ifdef __LEVEL_METER__
-static void update_level_meter(void);
+/*static */void update_level_meter(void);
 char level_text[20];
 char freq_text[20];
 #endif
@@ -415,7 +415,7 @@ dBm_to_Watt(const float v)
   return   logf(v*1000.0)*(10.0/logf(10.0));
 }
 
-static float fast_expf(float x)
+ float fast_expf(float x)
 {
   union { float f; int32_t i; } v;
   v.i = (int32_t)(12102203.0f*x) + 0x3F800000;
@@ -1867,7 +1867,7 @@ draw_frequencies(void)
 #define BATTERY_WARNING_LEVEL   3300
 #define BATTERY_MID_LEVEL       3900
 
-static void draw_battery_status(void)
+/*static */void draw_battery_status(void)
 {
 #ifdef  __USE_SD_CARD__
 static const uint8_t sd_icon [] = {
@@ -2006,7 +2006,7 @@ int display_test(void)
 #include "waterfall.c"
 #endif
 
-static void update_waterfall(void){
+/*static */void update_waterfall(void){
   int i;
   int w_width = area_width < WIDTH ? area_width : WIDTH;
 //  START_PROFILE;
@@ -2110,7 +2110,7 @@ disable_waterfall(void)
 }
 
 #ifdef __LEVEL_METER__
-static void update_level_meter(void){
+/*static */void update_level_meter(void){
   if (level_text[0] == 0)
     return;
   ili9341_set_background(LCD_BG_COLOR);

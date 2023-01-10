@@ -6770,7 +6770,8 @@ static int touch_quick_menu(int touch_x, int touch_y)
 
 #ifdef __USE_SD_CARD__
 // Create file name from current time
-static FRESULT sa_create_file(char *fs_filename)
+//static 
+FRESULT sa_create_file(char *fs_filename)
 {
 //  shell_printf("S file\r\n");
   FRESULT res = f_mount(fs_volume, "", 1);
