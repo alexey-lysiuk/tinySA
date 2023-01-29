@@ -143,9 +143,24 @@ static THD_FUNCTION(Thread1, arg)
 //  ui_process();
 //#endif
 #if 1    // zzzzz
+  static const freq_t g_freq_mhz_list[] = 
+  {
+    900, 910,
+    1200, 1210,
+    2400, 2410, 2420, 2430, 2440, 2450, 2460, 2470, 
+    5200, 5220, 
+    5760, 5780, 5800, 5820
+  }; 
+#define countof(x) sizeof(x)/sizeof(x[0])
+  int i_freq = 0;
   freq_t freq_min = 2380000000UL;       // To use 2390 MHz video source near my location, use 2400 for WiFi
   freq_t freq_max = 2500000000UL;
+
+  freq_min = 2400000000UL;       // To use 2390 MHz video source near my location, use 2400 for WiFi
+  freq_max = 2490000000UL;
+
   freq_t f0 = freq_min;
+  f0 = g_freq_mhz_list[i_freq]*1000000ULL;
   set_frequencies(f0,f0,sweep_points);
   sweep_mode |= SWEEP_ENABLE;
   sweep_mode |= SWEEP_UI_MODE;
@@ -283,10 +298,12 @@ static THD_FUNCTION(Thread1, arg)
 // zzzzz
     asp_save_file();
     asp_update_band(f0/1000000UL);
-    f0 +=              10000000UL;
-    if (f0 >= freq_max)
+    if (++i_freq >= countof(g_freq_mhz_list))
+//    f0 +=               5000000UL;
+//    if (f0 >= freq_max)
     {
-        f0 = freq_min;
+  //      f0 = freq_min;
+        i_freq = 0;
         ili9341_set_foreground(LCD_BRIGHT_COLOR_GREEN);
         if (completed) 
         {
@@ -299,6 +316,7 @@ static THD_FUNCTION(Thread1, arg)
             //ili9341_drawstring("zzzzzzzzzzz", 50, LCD_HEIGHT - FONT_GET_HEIGHT);
         }
     }
+    f0 = g_freq_mhz_list[i_freq]*1000000ULL;
 #endif
 
                           // remaining traces
@@ -1006,7 +1024,8 @@ config_t config = {
   .touch_cal =          { 444, 715, 3552, 3499 }, // 4 inch panel
 #endif
   ._mode     = _MODE_USB | _MODE_AUTO_FILENAME,
-  ._serial_speed = SERIAL_DEFAULT_BITRATE,
+  ._serial_speed = 1843200,//19200,//SERIAL_DEFAULT_BITRATE,
+  
   .lcd_palette = LCD_DEFAULT_PALETTE,
 #ifdef TINYSA3
   .vbat_offset = 500,

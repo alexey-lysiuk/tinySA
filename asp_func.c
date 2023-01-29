@@ -265,7 +265,7 @@ p_signal *= v_acf1(array, n)*2;
 */
 static uint16_t color_signal(const float *array, int n, float * ppower_normed, float*pprob_signal, float*ppowewr_dbm)
 {
-    float power, scale;
+    float power, scale, intensity;
     float p = prob_signal(array, n, &power);
     *ppowewr_dbm = power;
     *pprob_signal = p;;
@@ -281,19 +281,30 @@ static uint16_t color_signal(const float *array, int n, float * ppower_normed, f
 //p=1;
     //*ppower_normed = scale;
     *ppower_normed = p;
-    p = scale;
+
+*ppower_normed = 1;  /// 1
+
+    intensity = scale;
 
 //    scale = 1;
 //    p = 1;
 //p*=scale;
-    r = MAX((p - 0.5), 0) *2 * 255;
+    r = MAX((intensity - 0.5), 0) *2 * 255;
+
     r = p*255;
-    g = MIN(p, 0.5) *2 * 255;
-    g = r;
-    b = r;
-    r *= scale;
-    g *= scale;
-    b *= scale;
+//    g = MIN(intensity, 0.5) *2 * 255;
+    g = intensity*255;
+    b = intensity*255;
+
+
+    if (p > 0.5)
+    {
+        g = b = 0;
+    }
+
+//    r *= scale;
+//    g *= scale;
+//    b *= scale;
 
     color = RGB565(r,g,b);
     return color;
@@ -303,7 +314,10 @@ static uint16_t color_signal(const float *array, int n, float * ppower_normed, f
 static uint16_t g_band_color[MAX_BANDS];
 static float    g_band_width[MAX_BANDS];
 static float    g_band_detection_prob[MAX_BANDS];
+static float    g_band_detection_prob_new[MAX_BANDS];
+static float    g_band_detection_prob_prev[MAX_BANDS];
 static float    g_band_power[MAX_BANDS];
+static float    g_band_power_prev[MAX_BANDS];
 static int      g_band_mhz[MAX_BANDS];
 static int      g_band_count;
 static int      g_dac = 0xffff;
@@ -325,10 +339,44 @@ void asp_update_band(int band_mhz)
     }
     float prob;
     g_band_color[i] = color_signal(measured[TRACE_ACTUAL], sweep_points, &g_band_width[i], &prob, &g_band_power[i]);
-    g_band_detection_prob[i] += (prob - g_band_detection_prob[i])*g_smooth;
+
+//    g_band_detection_prob[i] += (prob - g_band_detection_prob[i])*g_smooth;
+    g_band_detection_prob_new[i] = prob;
 }
 
+int v_max_idx(const float * v, int n)
+{
+    int i, imax = 0;
+    for (i = 0; i < n; i++)
+    {
+        if (v[i] > v[imax])
+        {
+            imax = i;
+        }
+    }
+    return imax;
+}
 
+void asp_update_jump_band()
+{
+    int i;
+    int i_new = v_max_idx(g_band_detection_prob_new, g_band_count);
+    int i_prev = v_max_idx(g_band_detection_prob_prev, g_band_count);
+    float sum_big = g_band_power[i_new] + g_band_power_prev[i_prev];
+    float sum_small = g_band_power[i_prev] + g_band_power_prev[i_new];
+    float diff_new = g_band_power[i_new] + g_band_power_prev[i_new];
+    float diff_prev = g_band_power_prev[i_prev] - g_band_power[i_prev];
+    if (sum_big - sum_small > 0.5 * (diff_new + diff_prev))
+    {
+        g_band_detection_prob[i_new] = MAX(g_band_detection_prob[i_new], g_band_detection_prob[i_prev]);
+    }
+    for (i = 0; i < g_band_count; i++)
+    {
+        g_band_detection_prob[i] += (g_band_detection_prob_new[i] - g_band_detection_prob[i])*g_smooth;
+        g_band_detection_prob_prev[i] = g_band_detection_prob_new[i];
+        g_band_power_prev[i] = g_band_power[i];
+    }
+}
 
 void asp_update_waterfall(void)
 {
@@ -345,6 +393,7 @@ void asp_update_waterfall(void)
   {
     g_smooth = 1.f/(g_call_count+1);
   }
+  asp_update_jump_band();
 
   for (i = CHART_BOTTOM-1; i >=graph_bottom+1; i--) 
   {	// Scroll down
@@ -353,9 +402,13 @@ void asp_update_waterfall(void)
   }
 
   int k, kmax = 0;
+  // print top line
   for (k = 0; k < g_band_count; k++)
   {
-    lcd_printf(OFFSETX + k*w_width/g_band_count, graph_bottom - 15, "%3d", g_band_mhz[k]/10);
+    if (g_band_mhz[k] % 10 == 0)
+    {
+        lcd_printf(OFFSETX + k*w_width/g_band_count, graph_bottom - 15, "%3d", g_band_mhz[k]);
+    }
     if (g_band_detection_prob[k] > g_band_detection_prob[kmax])
     {
       kmax = k;
@@ -370,16 +423,20 @@ void asp_update_waterfall(void)
 //  ili9341_clear_screen();
   if (g_band_detection_prob[kmax] > 0.5)
   {
-      plot_printf(mess, sizeof(mess), "ATAKA %d MHz BEP.=%d%% YPOBEH=%d dBm", g_band_mhz[kmax], (int)(g_band_detection_prob[kmax]*100), (int)(g_band_power[kmax]));
+      plot_printf(mess, sizeof(mess), "ATAKA %d MHz BEP.=%d%% YPOBEH=%d dBm    ", g_band_mhz[kmax], (int)(g_band_detection_prob[kmax]*100), (int)(g_band_power[kmax]));
       lcd_setBrightness(0);  // Flash screen, or use DAC->DHR12R2 = 0;
       for (k=0;k<100;k++)    // beep
       {
         DAC->DHR12R1 = g_dac;
         g_dac ^= 0xffff;
         chThdSleepMilliseconds(1);
+//        shell_serial_printf("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\n");
+//        shell_serial_printf("\xff\xff\xff\xff\xff\xff\xff\xff\xff\n");
+//        shell_serial_printf("\xff\xff\xff\xff\xff");
+        shell_serial_printf("\xaa\xaa\xaa\xaa\xaa");
       }
       lcd_setBrightness(100);  // Flash screen
-      ili9341_set_foreground(LCD_BRIGHT_COLOR_RED);
+      ili9341_set_foreground(LCD_LOW_BAT_COLOR);
       ili9341_drawstring_10x14(mess, OFFSETX+5, 10);
       ili9341_set_foreground(LCD_BRIGHT_COLOR_GREEN);
       g_warning_flag = 1;
@@ -392,7 +449,7 @@ void asp_update_waterfall(void)
           lcd_setBrightness(DEFAULT_BRIGHTNESS); 
           g_warning_flag = 0;
       }
-      plot_printf(mess, sizeof(mess), "MAKC %d MHz BEP.=%d%% YPOBEH=%d dBm", g_band_mhz[kmax], (int)(g_band_detection_prob[kmax]*100), (int)(g_band_power[kmax]));
+      plot_printf(mess, sizeof(mess), "MAKC %d MHz BEP.=%d%% YPOBEH=%d dBm    ", g_band_mhz[kmax], (int)(g_band_detection_prob[kmax]*100), (int)(g_band_power[kmax]));
       ili9341_drawstring_7x13(mess, OFFSETX+5, 10);
   }
 //  ili9341_set_background(LCD_BG_COLOR);
