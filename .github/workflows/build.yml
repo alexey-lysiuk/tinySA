@@ -11,9 +11,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    env:
-      TOOLCHAIN_NAME: "arm-gnu-toolchain-${{ env.TOOLCHAIN_VERSION }}-x86_64-arm-none-eabi"
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +18,8 @@ jobs:
 
       - name: Prepare Toolchain
         run: |
+          # TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi
+          echo "TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi" >> $GITHUB_ENV
           TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME.tar.xz
           wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
           tar -xf $TOOLCHAIN_PACKAGE
