@@ -40,7 +40,7 @@ jobs:
           path: build
 
       - name: List Directories
-        if: always()
+        if: 0
         run: |
           git status
           ls -lR .
