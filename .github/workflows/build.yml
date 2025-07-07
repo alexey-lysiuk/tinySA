@@ -1,0 +1,28 @@
+name: Build
+
+on: [push, pull_request]
+env:
+  # Navigate the following URLs for versions and download links
+  # * https://developer.arm.com/Tools%20and%20Software/GNU%20Toolchain
+  # * https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+  TOOLCHAIN_VERSION: 14.3.rel1
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Prepare Toolchain
+        run: |
+          TOOLCHAIN_PACKAGE=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi.tar.xz
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
+          tar -xf $TOOLCHAIN_PACKAGE
+          rm $TOOLCHAIN_PACKAGE
+
+      - name: Build Firmware
+        run: |
+          export PATH=$PATH:$(pwd)/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin
+          make --keep-going TARGET=F303
