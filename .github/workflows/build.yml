@@ -21,18 +21,16 @@ jobs:
         run: |
           TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi
           TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME.tar.xz
-
           wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
           tar -xf $TOOLCHAIN_PACKAGE
           rm $TOOLCHAIN_PACKAGE
-
           echo "TOOLCHAIN_NAME=$TOOLCHAIN_NAME" >> $GITHUB_ENV
-          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $VERSION
 
       - name: Build Firmware
         run: |
           export PATH=$PATH:$(pwd)/$TOOLCHAIN_NAME/bin
           make --keep-going TARGET=F303
+          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
 
       - name: Upload Package
         uses: actions/upload-artifact@v4
