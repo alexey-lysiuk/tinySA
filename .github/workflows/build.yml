@@ -30,6 +30,7 @@ jobs:
         run: |
           export PATH=$PATH:$(pwd)/$TOOLCHAIN_NAME/bin
           make --keep-going TARGET=F303
+          rm -r build/lst build/obj
           echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
 
       - name: Upload Package
