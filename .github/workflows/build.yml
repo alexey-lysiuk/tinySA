@@ -5,28 +5,13 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-24.04
-    env:
-      # Navigate the following URLs for versions and download links
-      # * https://developer.arm.com/Tools%20and%20Software/GNU%20Toolchain
-      # * https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
-      TOOLCHAIN_VERSION: 14.3.rel1
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      # - name: Prepare Toolchain
-      #   run: |
-      #     TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi
-      #     TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME.tar.xz
-      #     wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
-      #     tar -xf $TOOLCHAIN_PACKAGE
-      #     rm $TOOLCHAIN_PACKAGE
-      #     echo "TOOLCHAIN_NAME=$TOOLCHAIN_NAME" >> $GITHUB_ENV
-
-      - name: Prepare Toolchain
+      - name: Install Toolchain
         run: |
           sudo apt install gcc-arm-none-eabi
 
