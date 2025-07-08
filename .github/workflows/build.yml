@@ -17,20 +17,27 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
+      # - name: Prepare Toolchain
+      #   run: |
+      #     TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi
+      #     TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME.tar.xz
+      #     wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
+      #     tar -xf $TOOLCHAIN_PACKAGE
+      #     rm $TOOLCHAIN_PACKAGE
+      #     echo "TOOLCHAIN_NAME=$TOOLCHAIN_NAME" >> $GITHUB_ENV
+
       - name: Prepare Toolchain
         run: |
-          TOOLCHAIN_NAME=arm-gnu-toolchain-$TOOLCHAIN_VERSION-x86_64-arm-none-eabi
-          TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME.tar.xz
-          wget -q https://developer.arm.com/-/media/Files/downloads/gnu/$TOOLCHAIN_VERSION/binrel/$TOOLCHAIN_PACKAGE
-          tar -xf $TOOLCHAIN_PACKAGE
-          rm $TOOLCHAIN_PACKAGE
-          echo "TOOLCHAIN_NAME=$TOOLCHAIN_NAME" >> $GITHUB_ENV
+          sudo apt install gcc-arm-none-eabi
 
       - name: Build Firmware
         run: |
-          export PATH=$PATH:$(pwd)/$TOOLCHAIN_NAME/bin
+          # export PATH=$PATH:$(pwd)/$TOOLCHAIN_NAME/bin
           make --keep-going TARGET=F303
           rm -r build/lst build/obj
+
+      - name: Set Package Version
+        run: |
           echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
 
       - name: Upload Package
