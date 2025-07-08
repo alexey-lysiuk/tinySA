@@ -14,7 +14,6 @@ jobs:
       - name: Install Toolchain
         run: |
           brew install arm-none-eabi-gcc
-          ls -lR /opt/homebrew/Cellar/arm-none-eabi-*
 
       - name: Build Firmware
         run: |
