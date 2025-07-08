@@ -17,7 +17,6 @@ jobs:
 
       - name: Build Firmware
         run: |
-          # export PATH=$PATH:$(pwd)/$TOOLCHAIN_NAME/bin
           make --keep-going TARGET=F303
           rm -r build/lst build/obj
 
