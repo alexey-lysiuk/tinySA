@@ -17,7 +17,7 @@ jobs:
 
       - name: Build Firmware
         run: |
-          make --keep-going TARGET=F303
+          make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
           rm -r build/lst build/obj
 
       - name: Set Package Version
