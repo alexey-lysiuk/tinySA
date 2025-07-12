@@ -29,6 +29,7 @@ jobs:
 
       - name: Build Firmware
         run: |
+          arm-none-eabi-gcc --version
           make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
           rm -r build/lst build/obj
 
@@ -39,7 +40,7 @@ jobs:
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
-          name: tinySA4-${{ env.TINYSA_VERSION }}
+          name: tinySA4-${{ env.TINYSA_VERSION }}-${{ matrix.config.name }}
           path: build
 
       - name: List Directories
