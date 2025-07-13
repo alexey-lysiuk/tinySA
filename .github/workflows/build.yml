@@ -23,23 +23,21 @@ jobs:
         run: |
           sudo apt install gcc-arm-none-eabi
 
-      - name: Set GCC Version
+      - name: Set Versions
         run: |
           echo "GCC_VERSION=$(arm-none-eabi-gcc -dumpversion)" >> $GITHUB_ENV
+          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
+          echo "Building timySA $TINYSA_VERSION with GCC $GCC_VERSION"
 
       - name: Build Firmware
         run: |
           make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
           rm -r build/lst build/obj
 
-      - name: Set Package Version
-        run: |
-          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
-
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
-          name: tinySA4-${{ env.TINYSA_VERSION }}-${{ env.GCC_VERSION }}
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
           path: build
 
       - name: List Directories
