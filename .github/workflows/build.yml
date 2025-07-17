@@ -12,6 +12,9 @@ jobs:
         os-version:
           - 22.04
           - 24.04
+        extra-options:
+          - ''
+          - -USE_LTO=1
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +34,7 @@ jobs:
 
       - name: Build Firmware
         run: |
-          make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
+          make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1 ${{ matrix.extra-options }}
           rm -r build/lst build/obj
 
       - name: Upload Package
