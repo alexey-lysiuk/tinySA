@@ -14,7 +14,8 @@ jobs:
           - 24.04
         extra-options:
           - ''
-          - -USE_LTO=1
+          - -DUSE_LTO=1
+          - -DUSE_COPT=-O3
 
     steps:
       - uses: actions/checkout@v4
