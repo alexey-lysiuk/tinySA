@@ -41,7 +41,7 @@ jobs:
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
-          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}${{ matrix.extra-options }}
           path: build
 
       - name: List Directories
