@@ -61,9 +61,8 @@ jobs:
 
       - name: Prepare Complete Package
         run: |
-          ls -lR .
           mkdir all
-          mv *.zip all
+          mv tinySA4* all
 
       - uses: actions/upload-artifact@v4
         with:
