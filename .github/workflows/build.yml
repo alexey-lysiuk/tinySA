@@ -12,13 +12,13 @@ jobs:
         os-version:
           - 22.04
           - 24.04
-        extra-options:
-          - ''
-          - USE_LTO=1
-          - USE_COPT=-O2
-          - USE_COPT=-O2 USE_LTO=1
-          - USE_COPT=-O3
-          - USE_COPT=-O3 USE_LTO=1
+        # extra-options:
+        #   - ''
+        #   - USE_LTO=1
+        #   - USE_COPT=-O2
+        #   - USE_COPT=-O2 USE_LTO=1
+        #   - USE_COPT=-O3
+        #   - USE_COPT=-O3 USE_LTO=1
 
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +61,7 @@ jobs:
 
       - name: Prepare Complete Package
         run: |
+          ls -lR .
           mkdir all
           mv *.zip all
 
