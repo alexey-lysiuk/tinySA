@@ -52,3 +52,19 @@ jobs:
         run: |
           git status
           ls -lR .
+
+  package-all:
+    needs: [build]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Prepare Complete Package
+        run: |
+          mkdir all
+          mv *.zip all
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: all
+          path: all
