@@ -100,7 +100,7 @@ const char * const info_about[]={
   "Build Time: " __DATE__ " - " __TIME__,
   "Kernel: " CH_KERNEL_VERSION,
   "Compiler: " PORT_COMPILER_NAME,
-  "Extra Flags: " EXTRA_CFLAGS,
+  "Extra Flags: " EXTRA_FLAGS,
   "Architecture: " PORT_ARCHITECTURE_NAME " Core Variant: " PORT_CORE_VARIANT_NAME,
   "Port Info: " PORT_INFO,
   "Platform: " PLATFORM_NAME,
