@@ -15,7 +15,10 @@ jobs:
         extra-options:
           - ''
           - USE_LTO=1
+          - USE_COPT=-O2
+          - USE_COPT=-O2 USE_LTO=1
           - USE_COPT=-O3
+          - USE_COPT=-O3 USE_LTO=1
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +44,7 @@ jobs:
       - name: Upload Package
         uses: actions/upload-artifact@v4
         with:
-          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}${{ matrix.extra-options }}
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}-(${{ matrix.extra-options }})
           path: build
 
       - name: List Directories
