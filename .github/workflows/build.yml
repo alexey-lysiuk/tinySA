@@ -14,11 +14,9 @@ jobs:
           - 24.04
         extra-options:
           - ''
-          # - USE_LTO=1
-          - USE_COPT=-O1
-          - USE_COPT=-O1 USE_LTO=1
-          # - USE_COPT=-O3
-          # - USE_COPT=-O3 USE_LTO=1
+          - USE_LTO=1
+          - USE_COPT=-Ofast
+          - USE_COPT=-Ofast USE_LTO=1
 
     steps:
       - uses: actions/checkout@v4
