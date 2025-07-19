@@ -264,19 +264,9 @@ CPPWARN = -Wall -Wextra -Wundef
 # Start of user section
 #
 
-EXTRA_FLAGS = $(USE_COPT)
-
-# ifneq ($(USE_LTO),no)
-# 	ifeq ($(EXTRA_FLAGS),)
-# 		EXTRA_FLAGS = LTO
-# 	else
-# 		EXTRA_FLAGS += LTO
-# 	endif
-# endif
-
 # List all user C define here, like -D_DEBUG=1
 ifeq ($(TARGET),F303)
- UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -D__FPU_USED -DST7796S -DTINYSA4 -DEXTRA_FLAGS=\"$(EXTRA_FLAGS)\"
+ UDEFS = -DARM_MATH_CM4 -DVERSION=\"$(VERSION)\" -DTINYSA_F303 -D__FPU_USED -DST7796S -DTINYSA4 -DEXTRA_CFLAGS=\"$(USE_COPT)\"
 #Enable if install external 32.768kHz clock quartz on PC14 and PC15 pins on STM32 CPU
 UDEFS+= -DVNA_USE_LSE
 # Use R as usb pullup
