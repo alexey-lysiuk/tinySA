@@ -196,9 +196,49 @@ target_sources(${PROJECT_NAME} PRIVATE
 	waterfall.c
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+	__FPU_USED
+	ARM_MATH_CM4
+	CORTEX_USE_FPU=TRUE
+	ST7796S
+	THUMB_NO_INTERWORKING
+	THUMB_PRESENT
+	TINYSA4
+	TINYSA_F303
+	USB_DP_R_VDD
+	VNA_USE_LSE
+	# TODO: VERSION
+)
+
 target_include_directories(${PROJECT_NAME} PRIVATE
+	ChibiOS/os/common/ext/CMSIS/ST/STM32F3xx
+	ChibiOS/os/common/ext/CMSIS/include
+	ChibiOS/os/common/oslib/include
+	ChibiOS/os/common/ports/ARMCMx
+	ChibiOS/os/common/ports/ARMCMx/compilers/GCC
+	ChibiOS/os/common/startup/ARMCMx/compilers/GCC
+	ChibiOS/os/common/startup/ARMCMx/devices/STM32F3xx
 	ChibiOS/os/hal/include
+	ChibiOS/os/hal/lib/streams
+	ChibiOS/os/hal/osal/rt
+	ChibiOS/os/hal/ports/STM32/LLD/ADCv3
+	ChibiOS/os/hal/ports/STM32/LLD/CANv1
+	ChibiOS/os/hal/ports/STM32/LLD/DACv1
+	ChibiOS/os/hal/ports/STM32/LLD/DMAv1
+	ChibiOS/os/hal/ports/STM32/LLD/EXTIv1
+	ChibiOS/os/hal/ports/STM32/LLD/GPIOv2
+	ChibiOS/os/hal/ports/STM32/LLD/I2Cv2
+	ChibiOS/os/hal/ports/STM32/LLD/RTCv2
+	ChibiOS/os/hal/ports/STM32/LLD/SPIv2
+	ChibiOS/os/hal/ports/STM32/LLD/TIMv1
+	ChibiOS/os/hal/ports/STM32/LLD/USARTv2
+	ChibiOS/os/hal/ports/STM32/LLD/USBv1
+	ChibiOS/os/hal/ports/STM32/LLD/xWDGv1
+	ChibiOS/os/hal/ports/STM32/STM32F3xx
+	ChibiOS/os/hal/ports/common/ARMCMx
+	ChibiOS/os/license
 	ChibiOS/os/rt/include
+	NANOVNA_STM32_F303
 )
 
 # TODO: source_group(...)
