@@ -13,10 +13,8 @@ jobs:
           - 22.04
           - 24.04
         extra-options:
-          - ''
-          - USE_LTO=1
-          - USE_COPT=-Ofast
-          - USE_COPT=-Ofast USE_LTO=1
+          - USE_COPT=-Os
+          - USE_COPT=-Os USE_LTO=1
 
     steps:
       - uses: actions/checkout@v4
