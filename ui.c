@@ -6425,6 +6425,7 @@ redraw_cal_status:
 
   // Version
   y += YSTEP + YSTEP/2 ;
+#if 0
 #ifdef TINYSA4 // 'tinySA4_v1.2-[0-9]*-gxxxxxxx'
   strncpy(buf,&TINYSA_VERSION[9], BLEN+1); // '1.2-...'
 #else // 'tinySA_v1.2-[0-9]*-gxxxxxxx'
@@ -6446,6 +6447,19 @@ redraw_cal_status:
     buf[5] = buf[6];
   }
   buf[6] = 0;
+#else // version is commit hash
+  {
+    const char* hash = strstr(TINYSA_VERSION, "-g");
+    if (hash) {
+      int charcount = 6;
+      strncpy(buf, hash + 2, charcount);
+      buf[charcount] = 0;
+    }
+    else {
+      buf[0] = 0;
+    }
+  }
+#endif
   ili9341_drawstring(buf, x, y);
 
 #ifdef TINYSA4
