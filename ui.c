@@ -8071,6 +8071,7 @@ made_screenshot(int touch_x, int touch_y) {
   ili9341_fill(4, SD_CARD_START, 16, 16);
   touch_wait_release();
   menu_sdcard_cb(0, FMT_BMP_FILE);
+  menu_save_traces_cb(0, 0);
   return TRUE;
 }
 #endif
