@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build:
+    name: ${{ matrix.compiler.name }}
     runs-on: ubuntu-${{ matrix.compiler.os }}
 
     strategy:
@@ -13,11 +14,9 @@ jobs:
           - name: GCC 7.2.1
             os: '22.04'
             deps: |
-              TOOLCHAIN_NAME=gcc-arm-none-eabi-7-2017-q4-major
-              TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME-linux.tar.bz2
+              TOOLCHAIN_PACKAGE=gcc-arm-none-eabi-7-2017-q4-major-linux.tar.bz2
               wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/$TOOLCHAIN_PACKAGE
-              tar -xf $TOOLCHAIN_PACKAGE
-              echo "EXTRA_PATH=$(pwd)/$TOOLCHAIN_NAME/bin" >> $GITHUB_ENV
+              sudo tar -C /usr/local -xf $TOOLCHAIN_PACKAGE
 
           - name: GCC 10.3
             os: '22.04'
@@ -34,18 +33,15 @@ jobs:
           submodules: recursive
 
       - name: Install Toolchain
-        run: |
-          sudo apt install gcc-arm-none-eabi
+        run: ${{ matrix.compiler.deps }}
  
-      - name: Build Firmware
+      - name: Set Versions
         run: |
-          if [[ -n "$EXTRA_PATH" ]]; then
-            export PATH=$EXTRA_PATH:$PATH
-          fi
-
           echo "GCC_VERSION=$(arm-none-eabi-gcc -dumpversion)" >> $GITHUB_ENV
           echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
 
+      - name: Build Firmware
+        run: |
           echo "Building tinySA $TINYSA_VERSION with GCC $GCC_VERSION"
           make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
           rm -r build/lst build/obj
