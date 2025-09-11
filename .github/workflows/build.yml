@@ -15,8 +15,8 @@ jobs:
             os: '22.04'
             deps: |
               TOOLCHAIN_PACKAGE=gcc-arm-none-eabi-7-2017-q4-major-linux.tar.bz2
-              wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/$TOOLCHAIN_PACKAGE
-              sudo tar -C /usr/local -xf $TOOLCHAIN_PACKAGE
+              wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/$TOOLCHAIN_PACKAGE
+              sudo tar --directory /usr/local --strip-components 1 --extract --file $TOOLCHAIN_PACKAGE
 
           - name: GCC 10.3
             os: '22.04'
