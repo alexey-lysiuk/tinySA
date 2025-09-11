@@ -1,0 +1,43 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      TOOLCHAIN_NAME: gcc-arm-none-eabi-7-2017-q4-major
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Toolchain
+        run: |
+          TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME-linux.tar.bz2
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/7-2017q4/$TOOLCHAIN_PACKAGE
+          tar -xf $TOOLCHAIN_PACKAGE
+
+      - name: Build Firmware
+        run: |
+          export PATH=$(pwd)/$TOOLCHAIN_NAME/bin:$PATH
+
+          echo "GCC_VERSION=$(arm-none-eabi-gcc -dumpversion)" >> $GITHUB_ENV
+          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
+
+          make --keep-going TARGET=F303 USE_VERBOSE_COMPILE=1
+          rm -r build/lst build/obj
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
+          path: build
+
+      - name: List Directories
+        if: 0
+        run: |
+          git status
+          ls -lR .
