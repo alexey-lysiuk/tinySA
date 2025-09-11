@@ -11,7 +11,7 @@ jobs:
       matrix:
         compiler:
           - name: GCC 7.2.1
-            os: ubuntu-22.04
+            os: '22.04'
             deps: |
               TOOLCHAIN_NAME=gcc-arm-none-eabi-7-2017-q4-major
               TOOLCHAIN_PACKAGE=$TOOLCHAIN_NAME-linux.tar.bz2
@@ -20,11 +20,11 @@ jobs:
               echo "EXTRA_PATH=$(pwd)/$TOOLCHAIN_NAME/bin" >> $GITHUB_ENV
 
           - name: GCC 10.3
-            os: ubuntu-22.04
+            os: '22.04'
             deps: sudo apt install gcc-arm-none-eabi
 
           - name: GCC 13.2
-            os: ubuntu-24.04
+            os: '24.04'
             deps: sudo apt install gcc-arm-none-eabi
 
     steps:
