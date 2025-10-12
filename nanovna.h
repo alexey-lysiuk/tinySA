@@ -801,6 +801,13 @@ float marker_to_value(const int i);
 #define _MODE_AUTO_FILENAME    0x10
 #define _MODE_MHZ_CSV          0x20
 
+#ifdef __USE_SD_CARD__
+enum sd_icon_save_flags {
+  SDIS_NONE = 0, SDIS_CAPTURE = 1, SDIS_TRACES = 2, SDIS_SETBIT = 0x80
+};
+#define SDIS_DEFAULT (SDIS_CAPTURE | SDIS_SETBIT)
+#endif // __USE_SD_CARD__
+
 #pragma pack(push, 4)
 typedef struct config {
   int32_t magic;
@@ -882,6 +889,9 @@ typedef struct config {
   uint8_t hide_21MHz;
   uint8_t no_audio_agc;
 #endif
+#ifdef __USE_SD_CARD__
+  uint8_t sd_icon_save;   // enum
+#endif // __USE_SD_CARD__
   float sweep_voltage;
   float switch_offset;
   int16_t   ext_zero_level;
