@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "tinySA4",
             "includePath": [
                 "${workspaceFolder}/ChibiOS/os/hal/ports/STM32/**",
                 "${workspaceFolder}/ChibiOS/os/common/ext/CMSIS/ST/STM32F0xx/**",
@@ -9,11 +9,17 @@
                 "${workspaceFolder}/ChibiOS/os/hal/ports/common/ARMCMx/**",
                 "${workspaceFolder}/**"
             ],
-            "defines": ["STM32F072xB"],
-            "macFrameworkPath": [],
-            "compilerPath": "/usr/local/bin/arm-none-eabi-gcc",
-            "cStandard": "c11",
-            "cppStandard": "c++17"
+            "defines": [
+                "__FPU_USED",
+                "ARM_MATH_CM4",
+                "ST7796S",
+                "TINYSA_F303",
+                "TINYSA4",
+                "USB_DP_R_VDD",
+                "VNA_USE_LSE"
+            ],
+            "compilerPath": "arm-none-eabi-gcc",
+            "cStandard": "c11"
         }
     ],
     "version": 4
