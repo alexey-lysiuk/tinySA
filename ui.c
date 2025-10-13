@@ -5357,11 +5357,16 @@ static const menuitem_t menu_stimulus[] = {
 };
 
 #ifdef __USE_SD_CARD__
+static const menuitem_t menu_storage_sd_icon[] = {
+  { MT_ADV_CALLBACK, 0,       "SAVE\nCAPTURE",     menu_sd_icon_save_capture_acb },
+  { MT_ADV_CALLBACK, 0,       "SAVE\nTRACES",      menu_sd_icon_save_traces_acb },
+  { MT_NONE,         0,       NULL,                menu_back }
+};
+
 static const menuitem_t menu_storage_config[] = {
   { MT_ADV_CALLBACK, 0,       "AUTO NAME",              menu_autoname_acb },
   { MT_ADV_CALLBACK, 0,       "MHz\nCSV",               menu_mhz_csv_acb },
-  { MT_ADV_CALLBACK, 0,       "ICON SAVE\nCAPTURE",     menu_sd_icon_save_capture_acb },
-  { MT_ADV_CALLBACK, 0,       "ICON SAVE\nTRACES",      menu_sd_icon_save_traces_acb },
+  { MT_SUBMENU,      0,       "SD CARD\nICON",          menu_storage_sd_icon },
   { MT_NONE,         0,       NULL,                     menu_back }
 };
 

@@ -802,10 +802,13 @@ float marker_to_value(const int i);
 #define _MODE_MHZ_CSV          0x20
 
 #ifdef __USE_SD_CARD__
-enum sd_icon_save_flags {
-  SDIS_NONE = 0, SDIS_CAPTURE = 1, SDIS_TRACES = 2, SDIS_SETBIT = 0x80
-};
-#define SDIS_DEFAULT (SDIS_CAPTURE | SDIS_SETBIT)
+#define SDIS_CAPTURE (1 << 0)
+#define SDIS_TRACES (1 << 1)
+// Validity mask is needed to distinguish disabled SD card icon saving
+// from the case with old config that does not have sd_icon_save member
+// (the corresponding padding byte was always equal to zero)
+#define SDIS_VALID_MASK (1 << 7)
+#define SDIS_DEFAULT (SDIS_CAPTURE | SDIS_VALID_MASK)
 #endif // __USE_SD_CARD__
 
 #pragma pack(push, 4)
