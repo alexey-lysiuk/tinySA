@@ -1,0 +1,44 @@
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      # Avoid 'Context access might be invalid: ...' validation warnings
+      GCC_VERSION: ""
+      TINYSA_VERSION: ""
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install toolchain
+        run: |
+          wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
+          sudo tar --directory /usr/local --strip-components 1 --extract --file *.xz
+
+      - name: Get number of CPU cores
+        uses: SimenB/github-actions-cpu-cores@v2
+        id: cpu-cores
+
+      - name: Build firmware
+        run: |
+          for target in F072 F303; do
+            make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=$target USE_VERBOSE_COMPILE=1
+          done
+          
+          rm -r build/lst build/obj
+          ls -l build
+
+          echo "GCC_VERSION=$(arm-none-eabi-gcc -dumpversion)" >> $GITHUB_ENV
+          echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
+          path: build
