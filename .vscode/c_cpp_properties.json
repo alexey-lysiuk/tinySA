@@ -9,9 +9,12 @@
                 "${workspaceFolder}/ChibiOS/os/hal/ports/common/ARMCMx/**",
                 "${workspaceFolder}/**"
             ],
-            "defines": ["STM32F072xB"],
+            "defines": [
+                "STM32F303xC",
+                "TINYSA4"
+            ],
             "macFrameworkPath": [],
-            "compilerPath": "/usr/local/bin/arm-none-eabi-gcc",
+            "compilerPath": "arm-none-eabi-gcc",
             "cStandard": "c11",
             "cppStandard": "c++17"
         }

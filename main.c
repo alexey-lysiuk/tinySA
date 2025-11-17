@@ -1105,6 +1105,91 @@ VNA_SHELL_FUNCTION(cmd_sd_read)
   return;
 }
 
+VNA_SHELL_FUNCTION(cmd_sd_write)
+{
+  if (argc < 2 || argv[0][0] == '?')
+  {
+     usage_printf("sd_sd_write {filename} {size}\r\n");
+     return;
+  }
+
+  static const UINT FILESIZE_MAX = 1024 * 1024;
+  const UINT filesize = my_atoi(argv[1]);
+
+  if (filesize > FILESIZE_MAX) {
+    shell_printf("err: file too large, %u > %u\r\n", filesize, FILESIZE_MAX);
+    return;
+  }
+
+  if (cmd_sd_card_mount() != FR_OK)
+    return;
+
+  const char *filename = argv[0];
+  FRESULT res = f_open(fs_file, filename, FA_WRITE | FA_CREATE_ALWAYS);
+
+  if (res != FR_OK) {
+    shell_printf("err: (%d) cannot open file for writing\r\n", res);
+    return;
+  }
+
+  //static const UINT CHUNK_SIZE = 512;
+  //static const UINT CHUNK_SIZE_MAX = 1024;
+  static const UINT CHUNK_SIZE_MAX = 256;
+  // UINT written_total = 0;
+  uint8_t buf[CHUNK_SIZE_MAX];
+
+  // while (true) {
+  //   const UINT actual_count = streamRead(shell_stream, buf, CHUNK_SIZE);
+  //   if (actual_count == 0)
+  //     break;
+
+  //   UINT written = 0;
+  //   res = f_write(fs_file, buf, actual_count, &written);
+
+  //   if (res != FR_OK) {
+  //     shell_printf("err: (%d) cannot write %u bytes to file\r\n", res, actual_count);
+  //     break;
+  //   }
+
+  //   written_total += written;
+  // }
+
+  UINT bytes_to_process = filesize;
+  bool failed = false;
+
+  while (bytes_to_process > 0) {
+    const UINT chunk_size = bytes_to_process >= CHUNK_SIZE_MAX ? CHUNK_SIZE_MAX : bytes_to_process;
+    UINT bytes_read = streamRead(shell_stream, buf, chunk_size);
+
+    if (bytes_read != chunk_size) {
+      shell_printf("err: failed to read %u bytes, only %u bytes read\r\n", chunk_size, bytes_read);
+      failed = true;
+      break;
+    }
+
+    UINT bytes_written = 0;
+    res = f_write(fs_file, buf, chunk_size, &bytes_written);
+
+    if (res != FR_OK) {
+      shell_printf("err: (%d) failed to write %u bytes, only %u bytes written\r\n", res, chunk_size, bytes_written);
+      failed = true;
+      break;
+    }
+
+    bytes_to_process -= chunk_size;
+  }
+
+  f_close(fs_file);
+
+  // if (filesize != written_total) {
+  //   shell_printf("err: size don't match, %u != %u, file removed", filesize, written_total);
+  //   f_unlink(filename);
+  // }
+
+  if (failed)
+    f_unlink(filename);
+}
+
 VNA_SHELL_FUNCTION(cmd_sd_delete)
 {
   DIR dj;
@@ -2541,6 +2626,7 @@ static const VNAShellCommand commands[] =
 #ifdef ENABLE_SD_CARD_CMD
     { "sd_list",   cmd_sd_list,   CMD_WAIT_MUTEX },
     { "sd_read",   cmd_sd_read,   CMD_WAIT_MUTEX },
+    { "sd_write",  cmd_sd_write,  CMD_WAIT_MUTEX },
     { "sd_delete", cmd_sd_delete, CMD_WAIT_MUTEX },
 #endif
 #ifdef ENABLE_THREADS_COMMAND
