@@ -2262,6 +2262,24 @@ uint16_t hwid = 0;
 uint16_t hw_if = 0;
 char *hw_text = "";
 
+static void dump_unknown(int value)
+{
+  if (f_mount(fs_volume, "", 1) != FR_OK)
+    return;
+
+  if (f_open(fs_file, "unknown.txt", FA_READ | FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND) != FR_OK)
+    return;
+
+  uint32_t tr = rtc_get_tr_bcd();
+  uint32_t dr = rtc_get_dr_bcd();
+  char message[64];
+  int size = plot_printf(message, sizeof message, "%06x %06x: %d\n", dr, tr, value);
+  UINT written;
+
+  f_write(fs_file, message, size, &written);
+  f_close(fs_file);
+}
+
 const char *get_hw_version_text(void)
 {
   int v = adc1_single_read(0);
@@ -2273,6 +2291,7 @@ const char *get_hw_version_text(void)
       return hw_version_text[i].text;
     }
   }
+  dump_unknown(v);
   hwid = 0;
   hw_if = 0;
   return "Unknown";
