@@ -97,7 +97,7 @@ void adc_init(void)
   #endif
 }
 
-static void log_value(int value, int retry)
+static void log_value(const ADCConversionGroup *grpp, int value, int retry)
 {
   if (f_mount(fs_volume, "", 1) != FR_OK)
     return;
@@ -107,8 +107,9 @@ static void log_value(int value, int retry)
 
   uint32_t tr = rtc_get_tr_bcd();
   uint32_t dr = rtc_get_dr_bcd();
-  char message[32];
-  int size = plot_printf(message, sizeof message, "%06x %06x [%d]: %d\n", dr, tr, retry, value);
+  char message[64];
+  int size = plot_printf(message, sizeof message, "%06x %06x [%d %d]: %d (%d)\n",
+    dr, tr, grpp->smpr[0], grpp->smpr[1], value, retry);
   UINT written;
 
   f_write(fs_file, message, size, &written);
@@ -129,7 +130,7 @@ static msg_t adcConvertChecked(ADCDriver *adcp,
     if (result == MSG_OK)
       break;
     else
-      log_value(result, retry);
+      log_value(grpp, result, retry);
   }
 
   return result;
