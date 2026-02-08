@@ -97,6 +97,46 @@ void adc_init(void)
   #endif
 }
 
+static void log_value(int value, int retry)
+{
+  if (f_mount(fs_volume, "", 1) != FR_OK)
+    return;
+
+  if (f_open(fs_file, "tinysa4.log", FA_READ | FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND) != FR_OK)
+    return;
+
+  uint32_t tr = rtc_get_tr_bcd();
+  uint32_t dr = rtc_get_dr_bcd();
+  char message[32];
+  int size = plot_printf(message, sizeof message, "%06x %06x [%d]: %d\n", dr, tr, retry, value);
+  UINT written;
+
+  f_write(fs_file, message, size, &written);
+  f_close(fs_file);
+}
+
+static msg_t adcConvertChecked(ADCDriver *adcp,
+                   const ADCConversionGroup *grpp,
+                   adcsample_t *samples,
+                   size_t depth)
+{
+  msg_t result;
+
+  for (int retry = 0; retry < 10; ++retry)
+  {
+    result = adcConvert(adcp, grpp, samples, depth);
+
+    if (result == MSG_OK)
+      break;
+    else
+      log_value(result, retry);
+  }
+
+  return result;
+}
+
+#define adcConvert adcConvertChecked
+
 uint16_t adc_single_read(uint32_t chsel)
 {
   /* ADC setup */
