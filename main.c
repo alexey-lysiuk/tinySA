@@ -2262,6 +2262,26 @@ uint16_t hwid = 0;
 uint16_t hw_if = 0;
 char *hw_text = "";
 
+void log2file(const char* message, size_t length)
+{
+  if (f_mount(fs_volume, "", 1) != FR_OK)
+    return;
+
+  if (f_open(fs_file, "tinysa4.log", FA_READ | FA_WRITE | FA_OPEN_ALWAYS | FA_OPEN_APPEND) != FR_OK)
+    return;
+
+  uint32_t tr = rtc_get_tr_bcd();
+  uint32_t dr = rtc_get_dr_bcd();
+  char date_time[16];
+  int size = plot_printf(date_time, sizeof date_time, "%06x %06x: ", dr, tr);
+  UINT written;
+
+  f_write(fs_file, date_time, size, &written);
+  f_write(fs_file, message, length == 0 ? strlen(message) : length, &written);
+  f_write(fs_file, "\n", 1, &written);
+  f_close(fs_file);
+}
+
 const char *get_hw_version_text(void)
 {
   int v = adc1_single_read(0);
@@ -2273,6 +2293,9 @@ const char *get_hw_version_text(void)
       return hw_version_text[i].text;
     }
   }
+  char vstr[16];
+  int length = plot_printf(vstr, sizeof vstr, "%d", v);
+  log2file(vstr, length);
   hwid = 0;
   hw_if = 0;
   return "Unknown";

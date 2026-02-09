@@ -97,6 +97,34 @@ void adc_init(void)
   #endif
 }
 
+void log2file(const char* message, size_t length);
+
+static msg_t adcConvertChecked(ADCDriver *adcp,
+                   const ADCConversionGroup *grpp,
+                   adcsample_t *samples,
+                   size_t depth)
+{
+  msg_t result;
+
+  for (int retry = 0; retry < 10; ++retry)
+  {
+    result = adcConvert(adcp, grpp, samples, depth);
+
+    if (result == MSG_OK)
+      break;
+    else
+    {
+      char message[64];
+      int length = plot_printf(message, sizeof message, "[%d %d] -> %d (%d)", grpp->smpr[0], grpp->smpr[1], result, retry);
+      log2file(message, length);
+    }
+  }
+
+  return result;
+}
+
+#define adcConvert adcConvertChecked
+
 uint16_t adc_single_read(uint32_t chsel)
 {
   /* ADC setup */
