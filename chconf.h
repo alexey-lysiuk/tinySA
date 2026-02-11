@@ -187,7 +187,7 @@
  *
  * @note    The default is @p TRUE.
  */
-#define CH_CFG_USE_MUTEXES                  FALSE
+#define CH_CFG_USE_MUTEXES                  TRUE
 
 /**
  * @brief   Enables recursive behavior on mutexes.
