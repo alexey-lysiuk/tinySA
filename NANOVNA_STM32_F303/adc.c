@@ -86,8 +86,11 @@ static ADCConversionGroup adcgrpcfgXY = {
   {ADC_SQR1_SQ1_N(ADC_CHANNEL_IN3), 0, 0, 0} /* SQR[4]  */
 };
 
+static mutex_t adcd1mutex;
+
 void adc_init(void)
 {
+  osalMutexObjectInit(&adcd1mutex);
   adcStart(&ADCD2, NULL);
   adcStart(&ADCD1, NULL);
   #ifdef F303_ADC_VREF_ALWAYS_ON
@@ -110,7 +113,9 @@ uint16_t adc1_single_read(uint32_t chsel)
 {
   (void)chsel;
   /* ADC setup */
+  osalMutexLock(&adcd1mutex);
   adcConvert(&ADCD1, &adcgrpcfgVersion, samples, 1);
+  osalMutexUnlock(&adcd1mutex);
   return(samples[0]);
 }
 
@@ -144,6 +149,7 @@ int16_t adc_vbat_read(void)
 //                               Vref+ = 3.3 V (tolerance: +-10 mV). */
 //  float avg_slope = ((float)(temperature_cal1 - temperature_cal2))/(110-25);
 //  float ts;
+  osalMutexLock(&adcd1mutex);
 #ifndef F303_ADC_VREF_ALWAYS_ON
   adcSTM32EnableVBAT(&ADCD1);
   adcSTM32EnableVREF(&ADCD1);
@@ -161,6 +167,7 @@ int16_t adc_vbat_read(void)
   adcSTM32DisableVREF(&ADCD1);
 //  adcSTM32DisableTS(&ADCD1);
 #endif
+  osalMutexUnlock(&adcd1mutex);
 
 //  ts = samplesVBAT[2];
 //  uint16_t vts = (ADC_FULL_SCALE * VREFINT_CAL * ts / (vrefint * ((1<<12)-1)));
