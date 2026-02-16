@@ -2281,6 +2281,13 @@ const char *get_hw_version_text(void)
 const char *hw_text = "ZS304";
 #endif
 
+VNA_SHELL_FUNCTION(cmd_adc1)
+{
+  (void)argc;
+  (void)argv;
+  shell_printf("%d\r\n", adc1_single_read(0));
+}
+
 VNA_SHELL_FUNCTION(cmd_version)
 {
   (void)argc;
@@ -2427,6 +2434,7 @@ typedef struct {
 #define CMD_RUN_IN_UI   4
 static const VNAShellCommand commands[] =
 {
+    {"adc1"        , cmd_adc1        , 0},
     {"version"     , cmd_version     , 0},
     {"reset"       , cmd_reset       , 0},
     {"freq"        , cmd_freq        , CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD},
