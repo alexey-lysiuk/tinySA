@@ -897,6 +897,7 @@ typedef struct config {
 #ifdef __USE_SD_CARD__
   uint8_t sd_icon_save;   // enum
 #endif // __USE_SD_CARD__
+  uint8_t frequency_digits;
   float sweep_voltage;
   float switch_offset;
   int16_t   ext_zero_level;

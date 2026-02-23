@@ -1449,6 +1449,7 @@ enum {
   KM_FILENAME,
 #endif
   KM_TRIGGER_GRID,
+  KM_FREQUENCY_DIGITS,
   KM_NONE // always at enum end
 };
 
@@ -1541,6 +1542,7 @@ static const struct {
 [KM_FILENAME]     = {keypads_text        , "NAME"},  // filename
 #endif
 [KM_TRIGGER_GRID] = {keypads_time        , "INTERVAL"},              // KM_CODE
+[KM_FREQUENCY_DIGITS] = {keypads_positive, "FREQUENCY\nDIGITS"},
 };
 
 #if 0 // Not used
@@ -5270,6 +5272,7 @@ static const menuitem_t menu_display[] = {
 #ifdef TINYSA4
   { MT_SUBMENU,0,             "LOCK\nDISPLAY",    menu_lock_display},
 #endif
+  { MT_KEYPAD, KM_FREQUENCY_DIGITS,       "FREQ DIGITS\n\b%s",    "1..9"},
 //#ifdef __REMOTE_DESKTOP__
 //  { MT_ADV_CALLBACK,0,          "SEND\nDISPLAY",    menu_send_display_acb},
 //#endif
@@ -5770,6 +5773,10 @@ static void fetch_numeric_target(uint8_t mode)
   }
     break;
 #endif
+  case KM_FREQUENCY_DIGITS:
+    uistat.value = config.frequency_digits;
+    plot_printf(uistat.text, sizeof uistat.text, "%d", (int32_t)uistat.value);
+    break;
   }
 }
 
@@ -6092,7 +6099,10 @@ set_numeric_value(void)
     }
     break;
 #endif
-
+  case KM_FREQUENCY_DIGITS:
+    config.frequency_digits = uistat.value;
+    //config_save();
+    break;
   }
 }
 

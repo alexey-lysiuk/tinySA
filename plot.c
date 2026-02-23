@@ -1922,9 +1922,9 @@ draw_frequencies(void)
         plot_printf(buf1, sizeof(buf1), "%s", setting.bands[b].name);
       else {
         if (next_idx - idx < sweep_points/4-20)
-          plot_printf(buf1, sizeof(buf1), "%.3QHz", (setting.bands[b].start+setting.bands[b].end)/2 + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span);
+          plot_printf(buf1, sizeof(buf1), "%.*QHz", config.frequency_digits, (setting.bands[b].start+setting.bands[b].end)/2 + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span);
         else
-          plot_printf(buf1, sizeof(buf1), "%.3QHz %5.1QHz/", setting.bands[b].start + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span);
+          plot_printf(buf1, sizeof(buf1), "%.*QHz %5.1QHz/", config.frequency_digits, setting.bands[b].start + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span);
       }
       ili9341_drawstring(buf1, FREQUENCIES_XPOS1+idx, FREQUENCIES_YPOS);
       idx = next_idx;
@@ -1940,11 +1940,11 @@ draw_frequencies(void)
     plot_printf(buf2, sizeof(buf2), " TIME %.3Fs", (float)t/ONE_SECOND_TIME);
 
   } else if (FREQ_IS_STARTSTOP()) {
-    plot_printf(buf1, sizeof(buf1), " START %.3QHz    %5.1QHz/ %s", get_sweep_frequency(ST_START) + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span, shift);
-    plot_printf(buf2, sizeof(buf2), " STOP %.3QHz", get_sweep_frequency(ST_STOP) + (setting.frequency_offset - FREQUENCY_SHIFT));
+    plot_printf(buf1, sizeof(buf1), " START %.*QHz    %5.1QHz/ %s", config.frequency_digits, get_sweep_frequency(ST_START) + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span, shift);
+    plot_printf(buf2, sizeof(buf2), " STOP %.*QHz", config.frequency_digits, get_sweep_frequency(ST_STOP) + (setting.frequency_offset - FREQUENCY_SHIFT));
   } else if (FREQ_IS_CENTERSPAN()) {
-    plot_printf(buf1, sizeof(buf1), " CENTER %.3QHz    %5.1QHz/ %s", get_sweep_frequency(ST_CENTER) + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span, shift);
-    plot_printf(buf2, sizeof(buf2), " SPAN %.3QHz", get_sweep_frequency(ST_SPAN));
+    plot_printf(buf1, sizeof(buf1), " CENTER %.*QHz    %5.1QHz/ %s", config.frequency_digits, get_sweep_frequency(ST_CENTER) + (setting.frequency_offset - FREQUENCY_SHIFT), grid_span, shift);
+    plot_printf(buf2, sizeof(buf2), " SPAN %.*QHz", config.frequency_digits, get_sweep_frequency(ST_SPAN));
   }
   ili9341_set_foreground(LCD_FG_COLOR);
   ili9341_set_background(LCD_BG_COLOR);

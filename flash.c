@@ -128,6 +128,10 @@ config_recall(void)
     config.sd_icon_save = SDIS_DEFAULT;
 #endif // __USE_SD_CARD__
 
+  // Migrate from old config without frequency_digits member
+  if (config.frequency_digits == 0)
+    config.frequency_digits = 3;
+
   return 0;
 }
 

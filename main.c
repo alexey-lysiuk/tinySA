@@ -1263,6 +1263,7 @@ config_t config = {
 #ifdef __USE_SD_CARD__
   .sd_icon_save = SDIS_DEFAULT,
 #endif // __USE_SD_CARD__
+  .frequency_digits = 3,
 };
 
 
