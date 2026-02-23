@@ -6100,8 +6100,15 @@ set_numeric_value(void)
     break;
 #endif
   case KM_FREQUENCY_DIGITS:
-    config.frequency_digits = uistat.value;
-    //config_save();
+    {
+      int digits = uistat.value;
+      if (digits < 1)
+        digits = 1;
+      else if (digits > 9)
+        digits = 9;
+      config.frequency_digits = digits;
+      config_save();
+    }
     break;
   }
 }
