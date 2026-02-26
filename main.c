@@ -1105,6 +1105,8 @@ VNA_SHELL_FUNCTION(cmd_sd_read)
   return;
 }
 
+//uint32_t checksum(const void *start, size_t len);
+
 VNA_SHELL_FUNCTION(cmd_sd_write)
 {
   if (argc < 2 || argv[0][0] == '?')
@@ -1166,6 +1168,9 @@ VNA_SHELL_FUNCTION(cmd_sd_write)
       failed = true;
       break;
     }
+
+    uint32_t chunk_checksum = checksum(buf, chunk_size);
+    streamWrite(shell_stream, (void*)&chunk_checksum, sizeof chunk_checksum);
 
     UINT bytes_written = 0;
     res = f_write(fs_file, buf, chunk_size, &bytes_written);
