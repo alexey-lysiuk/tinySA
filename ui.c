@@ -528,6 +528,10 @@ touch_cal_exec(void)
 
 
 #endif
+
+extern void ramdisk_start(void);
+extern void ramdisk_stop(void);
+
 void
 touch_draw_test(void)
 {
@@ -550,6 +554,9 @@ touch_draw_test(void)
 
   }
   lcd_set_font(FONT_SMALL);
+
+  ramdisk_start();
+
   do {
     if (touch_check() == EVT_TOUCH_PRESSED){
       touch_position(&x0, &y0);
@@ -562,6 +569,8 @@ touch_draw_test(void)
       } while (touch_check() != EVT_TOUCH_RELEASED);
     }
   }while (!(btn_check() & EVT_BUTTON_SINGLE_CLICK));
+
+  ramdisk_stop();
 }
 #ifdef TINYSA4
 void

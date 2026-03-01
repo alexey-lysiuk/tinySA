@@ -3061,7 +3061,29 @@ void set_freq_boundaries(void) {
 }
 #endif
 
+#define RAMDISK_BLOCK_SIZE    512U
+#define RAMDISK_BLOCK_CNT     (romfs_bin_len / RAMDISK_BLOCK_SIZE)
+
 RamDisk ramdisk;
+static uint8_t blkbuf[RAMDISK_BLOCK_SIZE];
+
+void ramdisk_start(void)
+{
+  usbDisconnectBus(&USBD1);
+  chThdSleepMilliseconds(1500);
+  usbStart(&USBD1, &usbcfg);
+  ramdiskObjectInit(&ramdisk);
+  ramdiskStart(&ramdisk, (uint8_t*)romfs_bin, RAMDISK_BLOCK_SIZE, RAMDISK_BLOCK_CNT, true);
+  msdObjectInit(&USBMSD1);
+  msdStart(&USBMSD1, &USBD1, (BaseBlockDevice *)&ramdisk, blkbuf, NULL, NULL);
+  usbConnectBus(&USBD1);
+}
+
+void ramdisk_stop(void)
+{
+  msdStop(&USBMSD1);
+  // TODO: restore shell connection
+}
 
 int main(void)
 {
@@ -3370,18 +3392,6 @@ int main(void)
   #endif
 
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO-1, Thread1, NULL);
-
-  ////
-  usbDisconnectBus(&USBD1);
-  chThdSleepMilliseconds(1500);
-  usbStart(&USBD1, &usbcfg);
-  ramdiskObjectInit(&ramdisk);
-  ramdiskStart(&ramdisk, (uint8_t*)romfs_bin, 512, romfs_bin_len / 512, true);
-  msdObjectInit(&USBMSD1);
-  msdStart(&USBMSD1, &USBD1, /*(BaseBlockDevice *)&ramdisk, blkbuf*/ NULL, NULL, NULL, NULL);
-  usbConnectBus(&USBD1);
-  msdStop(&USBMSD1);
-  ///
 
 
  // toggle_debug_avoid();
