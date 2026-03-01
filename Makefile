@@ -114,12 +114,13 @@ endif
 # Imported source files and paths
 #CHIBIOS = ../ChibiOS-RT
 CHIBIOS = ChibiOS
+CHIBIOS_CONTRIB = $(CHIBIOS)/../ChibiOS-Contrib
 PROJ = .
 # Startup files.
 
 ifeq ($(TARGET),F303)
  include $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC/mk/startup_stm32f3xx.mk
- include $(CHIBIOS)/os/hal/hal.mk
+ include $(CHIBIOS_CONTRIB)/os/hal/hal.mk
  include $(CHIBIOS)/os/hal/ports/STM32/STM32F3xx/platform.mk
  include NANOVNA_STM32_F303/board.mk
 else
@@ -162,6 +163,8 @@ CSRC = $(STARTUPSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
        $(STREAMSSRC) \
+       $(CHIBIOS_CONTRIB)/os/various/lib_scsi.c \
+       $(CHIBIOS_CONTRIB)/os/various/ramdisk.c \
        FatFs/ff.c \
        FatFs/ffunicode.c \
        usbcfg.c \
@@ -210,7 +213,8 @@ ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC)  \
-         $(STREAMSINC)
+         $(STREAMSINC) \
+         $(CHIBIOS_CONTRIB)/os/various
 
 #
 # Project, sources and paths

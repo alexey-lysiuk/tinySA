@@ -1,0 +1,55 @@
+diff --git a/os/hal/src/hal_usb_msd.c b/os/hal/src/hal_usb_msd.c
+index 564bad00..5f87c4a2 100644
+--- a/os/hal/src/hal_usb_msd.c
++++ b/os/hal/src/hal_usb_msd.c
+@@ -264,19 +264,19 @@ static THD_FUNCTION(usb_msd_worker, arg) {
+  */
+ bool msd_request_hook(USBDriver *usbp) {
+ 
+-  if (((usbp->setup[0] & USB_RTYPE_TYPE_MASK) == USB_RTYPE_TYPE_CLASS) &&
+-    ((usbp->setup[0] & USB_RTYPE_RECIPIENT_MASK) == USB_RTYPE_RECIPIENT_INTERFACE)) {
++  if (((usbp->setup.bmRequestType & USB_RTYPE_TYPE_MASK) == USB_RTYPE_TYPE_CLASS) &&
++    ((usbp->setup.bmRequestType & USB_RTYPE_RECIPIENT_MASK) == USB_RTYPE_RECIPIENT_INTERFACE)) {
+     /* check that the request is for interface 0.*/
+-    if (MSD_SETUP_INDEX(usbp->setup) != 0)
++    if (usbp->setup.wIndex != 0)
+       return false;
+ 
+     /* act depending on bRequest = setup[1] */
+-    switch(usbp->setup[1]) {
++    switch(usbp->setup.bRequest) {
+     case MSD_REQ_RESET:
+       /* check that it is a HOST2DEV request */
+-      if (((usbp->setup[0] & USB_RTYPE_DIR_MASK) != USB_RTYPE_DIR_HOST2DEV) ||
+-         (MSD_SETUP_LENGTH(usbp->setup) != 0) ||
+-         (MSD_SETUP_VALUE(usbp->setup) != 0)) {
++      if (((usbp->setup.bmRequestType & USB_RTYPE_DIR_MASK) != USB_RTYPE_DIR_HOST2DEV) ||
++         (usbp->setup.wLength != 0) ||
++         (usbp->setup.wValue != 0)) {
+         return false;
+       }
+ 
+@@ -301,8 +301,8 @@ bool msd_request_hook(USBDriver *usbp) {
+       /* The device shall NAK the status stage of the device request until
+        * the Bulk-Only Mass Storage Reset is complete.
+        * NAK EP1 in and out */
+-      usbp->otg->ie[1].DIEPCTL = DIEPCTL_SNAK;
+-      usbp->otg->oe[1].DOEPCTL = DOEPCTL_SNAK;
++      //usbp->otg->ie[1].DIEPCTL = DIEPCTL_SNAK;
++      //usbp->otg->oe[1].DOEPCTL = DOEPCTL_SNAK;
+ 
+       chSysUnlockFromISR();
+ 
+@@ -312,9 +312,9 @@ bool msd_request_hook(USBDriver *usbp) {
+ 
+     case MSD_GET_MAX_LUN:
+       /* check that it is a DEV2HOST request */
+-      if (((usbp->setup[0] & USB_RTYPE_DIR_MASK) != USB_RTYPE_DIR_DEV2HOST) ||
+-         (MSD_SETUP_LENGTH(usbp->setup) != 1) ||
+-         (MSD_SETUP_VALUE(usbp->setup) != 0)) {
++      if (((usbp->setup.bmRequestType & USB_RTYPE_DIR_MASK) != USB_RTYPE_DIR_DEV2HOST) ||
++         (usbp->setup.wLength != 1) ||
++         (usbp->setup.wValue != 0)) {
+         return false;
+       }
+ 

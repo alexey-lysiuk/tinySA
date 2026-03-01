@@ -14,6 +14,7 @@ TAGS
 version.txt
 dorelease.bat
 ChibiOS
+ChibiOS-Contrib
 .settings/language.settings.xml
 .cproject
 Rubbish*

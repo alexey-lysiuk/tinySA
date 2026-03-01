@@ -20,6 +20,9 @@
 
 #include "usbcfg.h"
 #include "nanovna.h"
+#include "hal_usb_msd.h"
+#include "ramdisk.h"
+#include "romfs_img.h"
 
 #include <chprintf.h>
 #include <string.h>
@@ -3058,6 +3061,8 @@ void set_freq_boundaries(void) {
 }
 #endif
 
+RamDisk ramdisk;
+
 int main(void)
 {
   halInit();
@@ -3365,6 +3370,18 @@ int main(void)
   #endif
 
   chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO-1, Thread1, NULL);
+
+  ////
+  usbDisconnectBus(&USBD1);
+  chThdSleepMilliseconds(1500);
+  usbStart(&USBD1, &usbcfg);
+  ramdiskObjectInit(&ramdisk);
+  ramdiskStart(&ramdisk, (uint8_t*)romfs_bin, 512, romfs_bin_len / 512, true);
+  msdObjectInit(&USBMSD1);
+  msdStart(&USBMSD1, &USBD1, /*(BaseBlockDevice *)&ramdisk, blkbuf*/ NULL, NULL, NULL, NULL);
+  usbConnectBus(&USBD1);
+  msdStop(&USBMSD1);
+  ///
 
 
  // toggle_debug_avoid();
