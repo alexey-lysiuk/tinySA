@@ -3067,11 +3067,13 @@ void set_freq_boundaries(void) {
 RamDisk ramdisk;
 static uint8_t blkbuf[RAMDISK_BLOCK_SIZE];
 
+extern const USBConfig usbcfg_msd;
+
 void ramdisk_start(void)
 {
   usbDisconnectBus(&USBD1);
   chThdSleepMilliseconds(1500);
-  usbStart(&USBD1, &usbcfg);
+  usbStart(&USBD1, &usbcfg_msd);
   ramdiskObjectInit(&ramdisk);
   ramdiskStart(&ramdisk, (uint8_t*)romfs_bin, RAMDISK_BLOCK_SIZE, RAMDISK_BLOCK_CNT, true);
   msdObjectInit(&USBMSD1);
@@ -3275,7 +3277,8 @@ int main(void)
  * Init Shell console connection data (after load config for settings)
  */
 
-  shell_init_connection();
+  //shell_init_connection();
+  ramdisk_start();
 
   set_sweep_points(POINTS_COUNT);
 

@@ -555,7 +555,7 @@ touch_draw_test(void)
   }
   lcd_set_font(FONT_SMALL);
 
-  ramdisk_start();
+  //ramdisk_start();
 
   do {
     if (touch_check() == EVT_TOUCH_PRESSED){
@@ -570,7 +570,7 @@ touch_draw_test(void)
     }
   }while (!(btn_check() & EVT_BUTTON_SINGLE_CLICK));
 
-  ramdisk_stop();
+  //ramdisk_stop();
 }
 #ifdef TINYSA4
 void
