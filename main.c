@@ -1158,6 +1158,7 @@ VNA_SHELL_FUNCTION(cmd_sd_write)
   shell_printf("%u\r\n", bytecount);
   streamWrite(shell_stream, (void *)VNA_SHELL_PROMPT_STR, sizeof(VNA_SHELL_PROMPT_STR) - 1);
   // Receive binary data from stream and write to file
+  // spi_buffer is safe to use here as no SPI/LCD operations run concurrently
   uint8_t *buf = (uint8_t *)spi_buffer;
   uint32_t remaining = bytecount;
   while (remaining > 0) {
