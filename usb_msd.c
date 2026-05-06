@@ -121,10 +121,19 @@ static __attribute__((aligned(4))) uint8_t msd_cbw_buf[MSD_CBW_SIZE];
 static __attribute__((aligned(4))) uint8_t msd_csw_buf[MSD_CSW_SIZE];
 
 /*
- * Sector data buffer: reuse spi_buffer (at least 4096 bytes, unused during
- * USB drive mode since sweep and display updates are suspended).
+ * Sector data buffer: reuse spi_buffer (unused during USB drive mode since
+ * sweep and display updates are suspended).
+ * MSD_SECTOR_BUF_SECTS is how many 512-byte sectors fit in this buffer.
+ * Using more than one sector per disk_read/USB-transmit reduces both SPI
+ * command overhead (one CMD18 instead of N CMD17s) and USB transfer overhead.
  */
-#define msd_sector_buf  ((uint8_t *)spi_buffer)
+#define msd_sector_buf       ((uint8_t *)spi_buffer)
+#define MSD_SECTOR_BUF_BYTES ((size_t)(SPI_BUFFER_SIZE * sizeof(pixel_t)))
+#define MSD_SECTOR_BUF_SECTS ((uint16_t)(MSD_SECTOR_BUF_BYTES / MSD_SECTOR_SIZE))
+
+/* Ensure the buffer holds at least one full sector (catches misconfiguration) */
+_Static_assert(MSD_SECTOR_BUF_BYTES >= MSD_SECTOR_SIZE,
+               "spi_buffer must be at least MSD_SECTOR_SIZE bytes for USB MSC");
 
 /*===========================================================================*/
 /* USB MSC Descriptors                                                       */
@@ -345,6 +354,12 @@ const USBConfig msd_usbcfg = {
  * BOT protocol requires it to complete before returning to the idle state.
  * Exit detection happens in msd_receive_data() between commands.
  * Returns true on success.
+ *
+ * No sleep in the polling loop: USB ISRs are hardware-level and preempt this
+ * thread regardless of whether it is sleeping or spinning.  A tight poll lets
+ * the next operation start as soon as the transfer finishes (<1 ms for all
+ * control-plane packets; a few ms for sector-sized data).  The timeout guard
+ * still protects against a hung host.
  */
 static bool msd_transmit(const uint8_t *buf, size_t n) {
   osalSysLock();
@@ -359,7 +374,7 @@ static bool msd_transmit(const uint8_t *buf, size_t n) {
   while (USBD1.transmitting & (1U << MSD_EP_IN)) {
     if (USBD1.state != USB_ACTIVE) return false;
     if (chVTTimeElapsedSinceX(start) > MS2ST(MSD_TX_TIMEOUT_MS)) return false;
-    chThdSleepMilliseconds(1);
+    /* Tight poll — USB ISR clears the bit as soon as the last packet is ACKed */
   }
   return USBD1.state == USB_ACTIVE;
 }
@@ -373,6 +388,12 @@ static bool msd_transmit(const uint8_t *buf, size_t n) {
  * Sets msd_running = false and returns false on button press.
  * Returns false (without touching msd_running) on any USB state change
  * (reset, suspend, disconnect) so the BOT loop can wait for re-enumeration.
+ *
+ * The loop sleeps for one OS tick (0.1 ms at 10 kHz) on each iteration.
+ * This is enough to keep the button check responsive without burning 100% CPU
+ * while the drive sits idle between commands, and adds only negligible latency
+ * during active I/O (the host sends the next CBW within one USB frame after
+ * receiving our CSW, so data arrives well within a tick).
  */
 static bool msd_receive_data(uint8_t *buf, size_t n) {
   osalSysLock();
@@ -390,7 +411,7 @@ static bool msd_receive_data(uint8_t *buf, size_t n) {
       msd_running = false;
       return false;
     }
-    chThdSleepMilliseconds(1);
+    chThdSleep(1);  /* 1 OS tick = 0.1 ms @ 10 kHz, vs 1 ms before */
   }
   return USBD1.state == USB_ACTIVE;
 }
@@ -478,15 +499,23 @@ static bool scsi_read10(const msd_cbw_t *cbw) {
   uint32_t lba   = ((uint32_t)cbw->CB[2] << 24) | ((uint32_t)cbw->CB[3] << 16)
                  | ((uint32_t)cbw->CB[4] <<  8) | ((uint32_t)cbw->CB[5]);
   uint16_t count = (uint16_t)(((uint16_t)cbw->CB[7] << 8) | cbw->CB[8]);
-  for (uint16_t i = 0U; i < count; i++) {
-    if (disk_read(0, msd_sector_buf, lba + i, 1) != RES_OK) {
+  /*
+   * Read up to MSD_SECTOR_BUF_SECTS sectors at a time.  Batching uses CMD18
+   * (multi-block read) rather than N separate CMD17 single-block reads, which
+   * reduces SPI command overhead and USB transmit call overhead.
+   */
+  while (count > 0U) {
+    uint16_t batch = (count < MSD_SECTOR_BUF_SECTS) ? count : MSD_SECTOR_BUF_SECTS;
+    if (disk_read(0, msd_sector_buf, lba, batch) != RES_OK) {
       msd_sense_key = SCSI_SKEY_NOT_READY;
       msd_asc  = 0x11U;   /* Unrecovered read error */
       msd_ascq = 0x00U;
       return false;
     }
-    if (!msd_transmit(msd_sector_buf, MSD_SECTOR_SIZE))
+    if (!msd_transmit(msd_sector_buf, (size_t)batch * MSD_SECTOR_SIZE))
       return false;
+    lba   += batch;
+    count -= batch;
   }
   return true;
 }
@@ -495,15 +524,19 @@ static bool scsi_write10(const msd_cbw_t *cbw) {
   uint32_t lba   = ((uint32_t)cbw->CB[2] << 24) | ((uint32_t)cbw->CB[3] << 16)
                  | ((uint32_t)cbw->CB[4] <<  8) | ((uint32_t)cbw->CB[5]);
   uint16_t count = (uint16_t)(((uint16_t)cbw->CB[7] << 8) | cbw->CB[8]);
-  for (uint16_t i = 0U; i < count; i++) {
-    if (!msd_receive_data(msd_sector_buf, MSD_SECTOR_SIZE))
+  /* Receive up to MSD_SECTOR_BUF_SECTS sectors at a time, then write them. */
+  while (count > 0U) {
+    uint16_t batch = (count < MSD_SECTOR_BUF_SECTS) ? count : MSD_SECTOR_BUF_SECTS;
+    if (!msd_receive_data(msd_sector_buf, (size_t)batch * MSD_SECTOR_SIZE))
       return false;
-    if (disk_write(0, msd_sector_buf, lba + i, 1) != RES_OK) {
+    if (disk_write(0, msd_sector_buf, lba, batch) != RES_OK) {
       msd_sense_key = SCSI_SKEY_NOT_READY;
       msd_asc  = 0x03U;   /* Peripheral device write fault */
       msd_ascq = 0x00U;
       return false;
     }
+    lba   += batch;
+    count -= batch;
   }
   return true;
 }
@@ -595,6 +628,10 @@ static bool process_msd_cbw(void) {
       msd_running = false;
     }
     cmd_ok = true;   /* Always succeed regardless of LoEj/START values */
+    break;
+  case SCSI_PREVENT_ALLOW_REMOVAL:
+    /* Advisory lock/unlock — always acknowledge success, we have no lock hw */
+    cmd_ok = true;
     break;
   default:
     msd_sense_key = SCSI_SKEY_ILLEGAL_REQUEST;
