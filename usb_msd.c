@@ -287,8 +287,9 @@ static bool msd_requests_hook(USBDriver *usbp) {
       return true;
     case 0xFE:  /* Get Max LUN: report 0 (one LUN, the SD card) */
       {
-        static uint8_t lun_count = 0U;
-        usbSetupTransfer(usbp, &lun_count, 1, NULL);
+        /* lun_count is a constant (zero = one LUN); must be addressable for usbSetupTransfer */
+        static const uint8_t lun_count = 0U;
+        usbSetupTransfer(usbp, (uint8_t *)&lun_count, 1, NULL);
       }
       return true;
     }
@@ -310,7 +311,10 @@ const USBConfig msd_usbcfg = {
 
 /*
  * Poll the USB 'transmitting' bitmask until the IN transfer on MSD_EP_IN
- * is complete, or we time out / USB disconnects / button is pressed.
+ * is complete, or we time out / USB disconnects.
+ * Button press is NOT checked here: once a data or CSW phase has started the
+ * BOT protocol requires it to complete before returning to the idle state.
+ * Exit detection happens in msd_receive_data() between commands.
  * Returns true on success.
  */
 static bool msd_transmit(const uint8_t *buf, size_t n) {
@@ -579,8 +583,11 @@ void usb_msd_loop(void) {
   sweep_mode = 0U;
   ui_mode_normal();
 
-  /* Unmount FatFS to allow direct sector access by the host */
-  f_unmount("");
+  /* Unmount FatFS to allow direct sector access by the host.
+   * If unmounting fails the volume may have pending writes; proceed anyway
+   * since the drive was already synced by the previous f_sync/f_close calls
+   * and direct sector access is required for MSC. */
+  (void)f_unmount("");
 
   /*
    * Switch USB from CDC to MSC:

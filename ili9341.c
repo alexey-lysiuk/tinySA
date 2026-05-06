@@ -1739,7 +1739,7 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void* buff) {
     break;
 #endif
     // Retrieves number of available sectors, the largest allowable LBA + 1, on the drive into the LBA_t variable pointed by buff.
-    // Also used by USB Mass Storage Class driver.
+    // Also used by the USB Mass Storage Class driver.
     case GET_SECTOR_COUNT:
     {
       // SEND_CSD
