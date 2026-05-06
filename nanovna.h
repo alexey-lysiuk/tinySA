@@ -106,6 +106,7 @@
 #define __ULTRA__
 #define __USE_RTC__               // Enable RTC clock
 #define __USE_SD_CARD__           // Enable SD card support
+#define __USB_MSD__               // Enable USB Mass Storage (SD card as removable drive)
 //#define __SD_CARD_LOAD__          // Allow run commands from SD card (config.ini in root), if enabled __SD_FILE_BROWSER__ scripts run from *.cmd in it
 #define __SD_CARD_DUMP_FIRMWARE__ // Allow dump firmware to SD card
 #define __SD_FILE_BROWSER__
@@ -1758,6 +1759,10 @@ void testLog(void);        // debug log
 void sd_card_load_config(char *filename);
 extern systime_t last_auto_save;
 void save_csv(uint8_t mask);
+#endif
+
+#ifdef __USB_MSD__
+#include "usb_msd.h"
 #endif
 
 /*
