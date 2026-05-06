@@ -59,8 +59,22 @@
 /* Sector size matches SD card */
 #define MSD_SECTOR_SIZE             512U
 
-/* Transfer poll timeout (ms): host normally responds quickly */
-#define MSD_TRANSFER_TIMEOUT_MS    2000U
+/*
+ * Transmit-side timeout (ms).  Once we have started sending data to the host
+ * the ACK should arrive quickly.  A 2-second timeout guards against a hung
+ * host without blocking normal idle periods (which can be many seconds).
+ * The receive side (CBW) has NO timeout so the drive works correctly while
+ * the host-side FS is simply mounted and idle.
+ */
+#define MSD_TX_TIMEOUT_MS          2000U
+
+/*
+ * Maximum time (ms) to wait for the host to (re-)enumerate the device after a
+ * USB bus reset or on initial connection.  If no SET_CONFIGURATION arrives
+ * within this window the cable is assumed to be unplugged and USB drive mode
+ * is exited.
+ */
+#define MSD_ENUMERATION_TIMEOUT_MS 5000U
 
 /*===========================================================================*/
 /* Packed structures                                                         */
@@ -267,8 +281,23 @@ static void msd_usb_event(USBDriver *usbp, usbevent_t event) {
     chSysUnlockFromISR();
     return;
   case USB_EVENT_RESET:
-  case USB_EVENT_SUSPEND:
+    /*
+     * USB bus reset: _usb_reset() has already nulled all endpoint configs
+     * and cleared the receiving/transmitting bitmasks.  Mark the device as
+     * unconfigured so the BOT loop waits for the host to re-enumerate.
+     * Do NOT treat this as a fatal error — Windows and other OSes routinely
+     * issue a bus reset during MSC enumeration.
+     */
     msd_configured = false;
+    return;
+  case USB_EVENT_SUSPEND:
+    /*
+     * USB bus suspended.  The configuration is retained across suspend/resume
+     * so there is no new USB_EVENT_CONFIGURED on wakeup.  Clearing
+     * msd_configured here would cause the BOT loop to wait forever for a
+     * second CONFIGURED event that never arrives.  Leave it set; the polling
+     * loop detects the non-ACTIVE state and retries.
+     */
     return;
   case USB_EVENT_ADDRESS:
   case USB_EVENT_WAKEUP:
@@ -329,7 +358,7 @@ static bool msd_transmit(const uint8_t *buf, size_t n) {
   systime_t start = chVTGetSystemTimeX();
   while (USBD1.transmitting & (1U << MSD_EP_IN)) {
     if (USBD1.state != USB_ACTIVE) return false;
-    if (chVTTimeElapsedSinceX(start) > MS2ST(MSD_TRANSFER_TIMEOUT_MS)) return false;
+    if (chVTTimeElapsedSinceX(start) > MS2ST(MSD_TX_TIMEOUT_MS)) return false;
     chThdSleepMilliseconds(1);
   }
   return USBD1.state == USB_ACTIVE;
@@ -337,8 +366,13 @@ static bool msd_transmit(const uint8_t *buf, size_t n) {
 
 /*
  * Poll the USB 'receiving' bitmask until the OUT transfer on MSD_EP_OUT
- * is complete, or we time out / USB disconnects / button is pressed.
- * Returns true on success.  Button press (OP_LEVER) exits and returns false.
+ * is complete, or the USB bus changes state or the user presses the button.
+ * There is intentionally NO timeout: a correctly mounted drive may sit idle
+ * for an arbitrary amount of time between host commands.
+ * Returns true when data is available.
+ * Sets msd_running = false and returns false on button press.
+ * Returns false (without touching msd_running) on any USB state change
+ * (reset, suspend, disconnect) so the BOT loop can wait for re-enumeration.
  */
 static bool msd_receive_data(uint8_t *buf, size_t n) {
   osalSysLock();
@@ -349,10 +383,8 @@ static bool msd_receive_data(uint8_t *buf, size_t n) {
   usbStartReceiveI(&USBD1, MSD_EP_OUT, buf, n);
   osalSysUnlock();
 
-  systime_t start = chVTGetSystemTimeX();
   while (USBD1.receiving & (1U << MSD_EP_OUT)) {
     if (USBD1.state != USB_ACTIVE) return false;
-    if (chVTTimeElapsedSinceX(start) > MS2ST(MSD_TRANSFER_TIMEOUT_MS)) return false;
     if (operation_requested & OP_LEVER) {
       operation_requested &= (uint8_t)~OP_LEVER;
       msd_running = false;
@@ -493,13 +525,24 @@ static bool scsi_mode_sense6(const msd_cbw_t *cbw) {
 /* BOT command dispatcher                                                    */
 /*===========================================================================*/
 
-/* Process one CBW; returns true to continue, false on protocol error */
+/* Process one CBW.  Returns msd_running (true = continue, false = exit). */
 static bool process_msd_cbw(void) {
   const msd_cbw_t *cbw = (const msd_cbw_t *)msd_cbw_buf;
 
   if (cbw->dSignature != MSD_CBW_SIGNATURE ||
-      cbw->bCBLength < 1U || cbw->bCBLength > 16U)
-    return false;
+      cbw->bCBLength < 1U || cbw->bCBLength > 16U) {
+    /*
+     * Malformed CBW: per MSC BOT spec §6.6.1 the device must stall both
+     * bulk endpoints.  The host will then issue a Mass Storage Reset or a
+     * USB bus reset to recover.  We do NOT exit — just wait for that reset
+     * to arrive (msd_configured will be cleared, the BOT loop re-enumerates).
+     */
+    osalSysLock();
+    usbStallReceiveI(&USBD1,  MSD_EP_OUT);
+    usbStallTransmitI(&USBD1, MSD_EP_IN);
+    osalSysUnlock();
+    return msd_running;
+  }
 
   uint32_t tag     = cbw->dTag;
   uint8_t  cmd     = cbw->CB[0];
@@ -612,30 +655,65 @@ void usb_msd_loop(void) {
   msd_running    = true;
   msd_configured = false;
 
-  /* Wait for the host to enumerate the MSC device (up to 5 s) */
-  for (int i = 0; i < 50 && !msd_configured; i++) {
-    chThdSleepMilliseconds(100);
-    if (operation_requested & OP_LEVER) {
-      operation_requested &= (uint8_t)~OP_LEVER;
-      goto exit_msd;
+  /*
+   * BOT processing loop.
+   *
+   * Design goals:
+   *  - Survive USB bus resets.  Windows (and other OSes) routinely issue one
+   *    or more bus resets during MSC enumeration and may issue further resets
+   *    during normal operation.  After each reset the host re-enumerates the
+   *    device and sends a fresh INQUIRY/READ_CAPACITY sequence; we must handle
+   *    that transparently without exiting to the main screen.
+   *  - Survive USB bus suspend/resume.  The configuration survives a
+   *    suspend/resume cycle (no second CONFIGURED event is generated), so
+   *    we must not wait for a second CONFIGURED event after a wakeup.
+   *  - Exit cleanly on button press or if the host never reconnects within
+   *    a MSD_ENUMERATION_TIMEOUT_MS window (cable unplugged).
+   */
+  while (msd_running) {
+
+    /*
+     * If not configured — either on startup or after a USB bus reset — wait
+     * for the host to re-enumerate the device.  A MSD_ENUMERATION_TIMEOUT_MS
+     * timeout guards against the case where the cable was unplugged.
+     */
+    if (!msd_configured) {
+      systime_t t_wait = chVTGetSystemTimeX();
+      while (!msd_configured && msd_running) {
+        chThdSleepMilliseconds(10);
+        if (chVTTimeElapsedSinceX(t_wait) > MS2ST(MSD_ENUMERATION_TIMEOUT_MS)) {
+          /* Host did not re-enumerate: device likely unplugged */
+          msd_running = false;
+        }
+        if (operation_requested & OP_LEVER) {
+          operation_requested &= (uint8_t)~OP_LEVER;
+          msd_running = false;
+        }
+      }
+      /* Re-check msd_running; on timeout/button skip to exit */
+      continue;
     }
+
+    /*
+     * Receive a Command Block Wrapper from the host.
+     * msd_receive_data blocks until data arrives, the USB state changes
+     * (reset / suspend), or the user presses the button.
+     */
+    if (!msd_receive_data(msd_cbw_buf, MSD_CBW_SIZE)) {
+      /*
+       * Receive failed.  This is most likely a USB bus reset (msd_configured
+       * will be false) or USB suspend.  Sleep briefly to avoid a busy-loop
+       * during suspend, then go back to the top to handle the state change.
+       */
+      chThdSleepMilliseconds(10);
+      continue;
+    }
+
+    /* Execute the SCSI command and send the Command Status Wrapper */
+    process_msd_cbw();
+    /* msd_running == false if button was pressed inside process_msd_cbw */
   }
 
-  /* BOT processing loop */
-  while (msd_running && msd_configured) {
-    /* Wait for a Command Block Wrapper from the host */
-    if (!msd_receive_data(msd_cbw_buf, MSD_CBW_SIZE))
-      break;
-
-    /* Check button exit after receiving data */
-    if (!msd_running) break;
-
-    /* Execute the SCSI command and reply with CSW */
-    if (!process_msd_cbw())
-      break;
-  }
-
-exit_msd:
   msd_running = false;
 
   /* Disconnect MSC and restore CDC */
