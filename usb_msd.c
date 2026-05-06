@@ -582,8 +582,19 @@ static bool process_msd_cbw(void) {
     if (cmd_ok) residue = 0U;
     break;
   case SCSI_START_STOP_UNIT:
-  case SCSI_PREVENT_ALLOW_REMOVAL:
-    cmd_ok = true;
+    /*
+     * CB[4] bit layout: bit 0 = START, bit 1 = LoEj.
+     * Value 0x02 means LoEj=1, START=0 → eject/stop the media.
+     * Windows "Safely Remove Hardware" sends exactly this before suspending
+     * the device.  Set msd_running=false so the BOT loop exits after sending
+     * the CSW, restoring the CDC interface gracefully.
+     * All other START_STOP_UNIT variants (spin-up, etc.) are acknowledged
+     * as success but otherwise ignored — we are always "spun up".
+     */
+    if ((cbw->CB[4] & 0x03U) == 0x02U) {  /* LoEj=1 (bit 1), START=0 (bit 0) */
+      msd_running = false;
+    }
+    cmd_ok = true;   /* Always succeed regardless of LoEj/START values */
     break;
   default:
     msd_sense_key = SCSI_SKEY_ILLEGAL_REQUEST;
@@ -633,6 +644,17 @@ void usb_msd_loop(void) {
   (void)f_unmount("");
 
   /*
+   * Query SD card geometry NOW, while the SPI bus is idle and CDC is still
+   * active.  Doing this before usbConnectBus guarantees that msd_sector_count
+   * is valid the instant the host sends its first READ_CAPACITY command after
+   * enumeration.  If we queried it after usbConnectBus, the host could send
+   * READ_CAPACITY before the ioctl finished and receive NOT_READY, triggering
+   * a 1–10 second retry backoff that makes mounting appear very slow.
+   */
+  msd_sector_count = 0U;
+  disk_ioctl(0, GET_SECTOR_COUNT, &msd_sector_count);
+
+  /*
    * Switch USB from CDC to MSC:
    *   1. Physically disconnect so the host sees the device leave.
    *   2. Stop the CDC (SDU) driver.
@@ -647,10 +669,6 @@ void usb_msd_loop(void) {
   usbConnectBus(&USBD1);
 
   msd_draw_screen();
-
-  /* Obtain SD card geometry for READ_CAPACITY */
-  msd_sector_count = 0U;
-  disk_ioctl(0, GET_SECTOR_COUNT, &msd_sector_count);
 
   msd_running    = true;
   msd_configured = false;
@@ -701,10 +719,19 @@ void usb_msd_loop(void) {
      */
     if (!msd_receive_data(msd_cbw_buf, MSD_CBW_SIZE)) {
       /*
-       * Receive failed.  This is most likely a USB bus reset (msd_configured
-       * will be false) or USB suspend.  Sleep briefly to avoid a busy-loop
-       * during suspend, then go back to the top to handle the state change.
+       * Receive failed.  Most likely causes:
+       *  - USB bus reset  → msd_configured will be false
+       *  - USB suspend    → USBD1.state == USB_SUSPENDED
+       *  - Button press   → msd_running already set false by msd_receive_data
+       *
+       * In any case check the button here too, because when the USB is
+       * suspended msd_receive_data returns false immediately (without ever
+       * entering its polling loop) so OP_LEVER is never seen otherwise.
        */
+      if (operation_requested & OP_LEVER) {
+        operation_requested &= (uint8_t)~OP_LEVER;
+        msd_running = false;
+      }
       chThdSleepMilliseconds(10);
       continue;
     }
