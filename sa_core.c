@@ -66,12 +66,14 @@ int current_index = -1;
 
 setting_t setting;
 
+#define LEVEL_DBM_MIN -192.f
+
 uint16_t actual_rbw_x10 = 0;
 freq_t frequency_step_x10 = 0;
 uint16_t vbwSteps = 1;
 freq_t minFreq = 0;
 freq_t maxFreq = 520000000;
-static float prev_output_level_dBm = -150;  // cached output level to reduce redundant hardware writes
+static float prev_output_level_dBm = LEVEL_DBM_MIN;  // cached output level to reduce redundant hardware writes
 int spur_gate = 100;
 
 #ifdef __BANDS__
@@ -710,7 +712,7 @@ void reset_settings(int m)
   setting.trigger_mode = T_MID;
   setting.fast_speedup = 0;
   setting.faster_speedup = 0;
-  setting.trigger_level = -150.0;
+  setting.trigger_level = LEVEL_DBM_MIN;
 #ifdef __TRIGGER_TRACE__
   setting.trigger_trace = 255;
 #endif
@@ -930,7 +932,7 @@ void set_measurement(int m)
   setting.stored[TRACE_STORED] = true;
   if (m == M_LINEARITY) {
     for (int j = 0; j < setting._sweep_points; j++)
-      stored_t[j] = -150;
+      stored_t[j] = LEVEL_DBM_MIN;
     setting.linearity_step = 0;
     setting.attenuate_x2 = 29*2;
     setting.auto_attenuation = false;
@@ -3418,7 +3420,7 @@ int avoid_spur(freq_t f)                   // find if this frequency should be a
 
 static uint16_t max_index[MAX_MAX];
 static uint16_t cur_max = 0;
-float temppeakLevel = -150;
+float temppeakLevel = LEVEL_DBM_MIN;
 int16_t downslope = true;
 int peak_finding_index;
 float peak_finding_level;
@@ -3672,7 +3674,7 @@ pureRSSI_t perform(bool break_on_operation, int i, freq_t f, int tracking)     /
     set_calibration_freq(setting.refer);
     update_rbw();
     calculate_step_delay();
-    prev_output_level_dBm = -150;                               // clear cached level setting
+    prev_output_level_dBm = LEVEL_DBM_MIN;                               // clear cached level setting
     // Initialize HW
     scandirty = true;                                                       // This is the first pass with new settings
     for (int t=0;t<TRACES_MAX;t++)
@@ -4101,7 +4103,7 @@ modulation_again:
       my_veryfast_delay(modulation_delay);
   }
     // -------------------------------- Acquisition loop for one requested frequency covering spur avoidance and vbwsteps ------------------------
-  pureRSSI_t RSSI = float_TO_PURE_RSSI(-150);
+  pureRSSI_t RSSI = float_TO_PURE_RSSI(LEVEL_DBM_MIN);
   if (debug_avoid){                 // For debugging the spur avoidance control
 	stored_t[i] = -90.0;                                  // Display when to do spur shift in the stored trace
   }
@@ -5074,8 +5076,8 @@ static bool sweep(bool break_on_operation)
 //  int local_peakIndex = 0;
 #ifdef __SI4432__
   freq_t agc_peak_freq = 0;
-  float agc_peak_rssi = -150;
-  float agc_prev_rssi = -150;
+  float agc_peak_rssi = LEVEL_DBM_MIN;
+  float agc_prev_rssi = LEVEL_DBM_MIN;
   int last_AGC_value = 0;
   uint8_t last_AGC_direction_up = false;
   int AGC_flip_count = 0;
@@ -5274,7 +5276,7 @@ static bool sweep(bool break_on_operation)
         agc_peak_rssi = agc_prev_rssi = local_rssi;
       }
       if (local_rssi < AGC_RSSI_THRESHOLD)
-        agc_prev_rssi = -150;
+        agc_prev_rssi = LEVEL_DBM_MIN;
       freq_t delta_freq = current_freq - agc_peak_freq;
       if (agc_peak_freq != 0 &&  delta_freq < 2000000) {
         int max_gain = (-25 - agc_peak_rssi ) / 4;
@@ -5613,7 +5615,7 @@ static volatile int dummy;
         break;
 #ifdef __QUASI_PEAK__
         case AV_QUASI:
-        { static float old_RSSI = -150.0;
+        { static float old_RSSI = LEVEL_DBM_MIN;
 
         if (setting.frequency_step == 0) {
             if (i == 0) old_RSSI = trace_data[sweep_points-1];
@@ -6489,7 +6491,7 @@ void determine_direct_test_freq(void) {
   }
   int old_ultra = config.ultra;
   config.ultra = true;
-  float max_level = -150;
+  float max_level = LEVEL_DBM_MIN;
   set_refer_output(0);
   for (freq_t test_freq = test_start; test_freq < test_stop; test_freq += 30000000) {
     dirty = true;
