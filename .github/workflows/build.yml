@@ -34,7 +34,7 @@ jobs:
 
       - name: Build firmware
         run: |
-          make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303
+          make --jobs ${{ steps.cpu-cores.outputs.count }} --keep-going TARGET=F303 all dfu
           
           rm -r build/lst build/obj
           ls -l build
