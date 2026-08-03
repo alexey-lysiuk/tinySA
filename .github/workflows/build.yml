@@ -11,7 +11,7 @@ jobs:
       TINYSA_VERSION: ""
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -22,7 +22,7 @@ jobs:
           sudo tar --directory /usr/local --strip-components 1 --extract --file *.xz
 
       - name: Get number of CPU cores
-        uses: SimenB/github-actions-cpu-cores@v2
+        uses: SimenB/github-actions-cpu-cores@v3
         id: cpu-cores
 
       - name: Build firmware
@@ -36,7 +36,7 @@ jobs:
           echo "TINYSA_VERSION=$(git describe --tags --long)" >> $GITHUB_ENV
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tinySA4-${{ env.TINYSA_VERSION }}-gcc-${{ env.GCC_VERSION }}
           path: build
