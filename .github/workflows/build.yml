@@ -20,6 +20,13 @@ jobs:
         run: |
           wget --quiet https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
           sudo tar --directory /usr/local --strip-components 1 --extract --file *.xz
+          rm *.xz
+
+      - name: Install hex2dfu
+        run: |
+          wget --quiet https://github.com/encedo/hex2dfu/raw/refs/heads/master/hex2dfu.c
+          gcc -DED25519_SUPPORT=0 hex2dfu.c -o hex2dfu
+          sudo mv hex2dfu /usr/local/bin
 
       - name: Get number of CPU cores
         uses: SimenB/github-actions-cpu-cores@v3
