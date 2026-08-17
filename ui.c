@@ -4390,6 +4390,13 @@ static UI_FUNCTION_CALLBACK(menu_save_traces_cb) {
   sa_save_file(FMT_CSV_FILE);
 }
 
+#ifdef __USB_MSD__
+static UI_FUNCTION_CALLBACK(menu_usb_msd_cb) {
+  (void)item; (void)data;
+  usb_msd_loop();
+}
+#endif
+
 
 
 static UI_FUNCTION_ADV_CALLBACK(menu_autoname_acb)
@@ -5432,6 +5439,9 @@ static const menuitem_t menu_storage[] = {
   { MT_CALLBACK,    FMT_CFG_FILE,   "SAVE\nCONFIG",         menu_sdcard_cb},
   { MT_CALLBACK,    FMT_CSV_FILE,   "SAVE\nTRACES",         menu_save_traces_cb},
   { MT_SUBMENU,     0,              "CONFIG",               menu_storage_config },
+#ifdef __USB_MSD__
+  { MT_CALLBACK,    0,              "USB\nDRIVE",           menu_usb_msd_cb },
+#endif
 //  { MT_KEYPAD,      KM_INTERVAL,    "INTERVAL\n\b%s",       NULL },
   { MT_NONE,    0, NULL, menu_back} // next-> menu_back
 };

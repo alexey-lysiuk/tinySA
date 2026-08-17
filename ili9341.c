@@ -1737,9 +1737,9 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void* buff) {
    	 *(uint16_t*) buff = ;//SD_SECTOR_SIZE;
       res = RES_OK;
     break;
+#endif
     // Retrieves number of available sectors, the largest allowable LBA + 1, on the drive into the LBA_t variable pointed by buff.
-    // This command is used by f_mkfs and f_fdisk function to determine the size of volume/partition to be created.
-    // It is required when FF_USE_MKFS == 1.
+    // Also used by the USB Mass Storage Class driver.
     case GET_SECTOR_COUNT:
     {
       // SEND_CSD
@@ -1759,7 +1759,6 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void* buff) {
       }
     }
     break;
-#endif
   }
   SD_Unselect_SPI();
   DEBUG_PRINT("disk_ioctl(%d) = %d,\r\n", cmd, res);

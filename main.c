@@ -1135,6 +1135,13 @@ VNA_SHELL_FUNCTION(cmd_sd_delete)
 }
 #endif
 
+#ifdef __USB_MSD__
+VNA_SHELL_FUNCTION(cmd_usb_msd) {
+  (void)argc; (void)argv;
+  usb_msd_loop();
+}
+#endif
+
 config_t config = {
   .magic =             CONFIG_MAGIC,
   .dac_value =         1922,
@@ -2596,6 +2603,9 @@ static const VNAShellCommand commands[] =
     { "sd_list",   cmd_sd_list,   CMD_WAIT_MUTEX },
     { "sd_read",   cmd_sd_read,   CMD_WAIT_MUTEX },
     { "sd_delete", cmd_sd_delete, CMD_WAIT_MUTEX },
+#endif
+#ifdef __USB_MSD__
+    { "usb_msd",   cmd_usb_msd,   CMD_WAIT_MUTEX },
 #endif
 #ifdef ENABLE_THREADS_COMMAND
     {"threads"     , cmd_threads     , 0},
