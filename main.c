@@ -932,14 +932,14 @@ VNA_SHELL_FUNCTION(cmd_dump)
 
 uint8_t in_menu_command;
 
-VNA_SHELL_FUNCTION(cmd_menu)
+static void handle_menu_command(int argc, char *argv[], uint8_t in_menu)
 {
   ui_mode_normal();
   menu_current_level = 0;
   if (argc == 0) {
     return;
   }
-  in_menu_command = true;
+  in_menu_command = in_menu;
   if (argc >= 1)
     menu_invoke(my_atoi(argv[0])-1);
   if (argc >= 2)
@@ -949,6 +949,16 @@ VNA_SHELL_FUNCTION(cmd_menu)
   if (argc >= 4)
     menu_invoke(my_atoi(argv[3])-1);
   in_menu_command = false;
+}
+
+VNA_SHELL_FUNCTION(cmd_menu)
+{
+  handle_menu_command(argc, argv, true);
+}
+
+VNA_SHELL_FUNCTION(cmd_menu_keypad)
+{
+  handle_menu_command(argc, argv, false);
 }
 
 uint8_t remote_text = false;
@@ -2590,6 +2600,7 @@ static const VNAShellCommand commands[] =
     { "correction", cmd_correction,   CMD_RUN_IN_LOAD },
     { "calc", cmd_calc, CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD},
     { "menu", cmd_menu, CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD },
+    { "menu_keypad", cmd_menu_keypad, CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD },
     { "text", cmd_text, CMD_RUN_IN_LOAD},
     { "remark", cmd_remark, CMD_RUN_IN_LOAD },
 #ifdef ENABLE_SD_CARD_CMD
