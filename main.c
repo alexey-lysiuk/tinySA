@@ -1133,6 +1133,53 @@ VNA_SHELL_FUNCTION(cmd_sd_delete)
 
   return;
 }
+
+VNA_SHELL_FUNCTION(cmd_sd_write)
+{
+  FRESULT res;
+  UINT size;
+  if (argc != 2 || argv[0][0] == '?') {
+    usage_printf("sd_write {filename} {bytecount}\r\n");
+    return;
+  }
+  const char *filename = argv[0];
+  uint32_t bytecount = (uint32_t)my_atoi(argv[1]);
+  if (cmd_sd_card_mount() != FR_OK)
+    return;
+  if ((res = f_open(fs_file, filename, FA_CREATE_ALWAYS | FA_WRITE)) != FR_OK) {
+    shell_printf("err: (%d) open failed\r\n", res);
+    return;
+  }
+  // Acknowledge with bytecount and prompt, then wait for binary data
+  shell_printf("%u\r\n", bytecount);
+  streamWrite(shell_stream, (void *)VNA_SHELL_PROMPT_STR, sizeof(VNA_SHELL_PROMPT_STR) - 1);
+  // Receive binary data from stream and write to file
+  // spi_buffer is safe to use here as no SPI/LCD operations run concurrently
+  uint8_t *buf = (uint8_t *)spi_buffer;
+  uint32_t remaining = bytecount;
+  while (remaining > 0) {
+    uint32_t chunk = remaining > 512 ? 512 : remaining;
+    uint32_t received = 0;
+    while (received < chunk) {
+      size_t n = streamRead(shell_stream, buf + received, chunk - received);
+      if (n == 0) {
+        f_close(fs_file);
+        shell_printf("err: stream read failed\r\n");
+        return;
+      }
+      received += n;
+    }
+    res = f_write(fs_file, buf, chunk, &size);
+    if (res != FR_OK || size != chunk) {
+      f_close(fs_file);
+      shell_printf("err: (%d) write failed\r\n", res);
+      return;
+    }
+    remaining -= chunk;
+  }
+  f_close(fs_file);
+  // Shell sends VNA_SHELL_PROMPT_STR automatically after return to acknowledge success
+}
 #endif
 
 config_t config = {
@@ -2596,6 +2643,7 @@ static const VNAShellCommand commands[] =
     { "sd_list",   cmd_sd_list,   CMD_WAIT_MUTEX },
     { "sd_read",   cmd_sd_read,   CMD_WAIT_MUTEX },
     { "sd_delete", cmd_sd_delete, CMD_WAIT_MUTEX },
+    { "sd_write",  cmd_sd_write,  CMD_WAIT_MUTEX },
 #endif
 #ifdef ENABLE_THREADS_COMMAND
     {"threads"     , cmd_threads     , 0},
