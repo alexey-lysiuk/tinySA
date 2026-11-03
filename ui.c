@@ -2200,6 +2200,23 @@ static UI_FUNCTION_ADV_CALLBACK(menu_mode_acb)
   redraw_request |= REDRAW_CAL_STATUS;
 }
 
+// After a preset load: a generator preset starts with the output off, a mode change shows the menu of the new mode
+static void menu_preset_loaded(int old_mode)
+{
+  bool output = MODE_OUTPUT(setting.mode);
+  if (output)
+    setting.mute = true;
+  if (setting.mode == old_mode) {
+    menu_move_back(!output);      // a generator returns to its form menu
+    return;
+  }
+  menu_move_top();
+  if (output)
+    menu_push_submenu(setting.mode == M_GENLOW ? menu_lowoutputmode : menu_highoutputmode);
+  else
+    ui_mode_normal();
+}
+
 static UI_FUNCTION_ADV_CALLBACK(menu_load_preset_acb)
 {
   (void)item;
@@ -2216,11 +2233,12 @@ static UI_FUNCTION_ADV_CALLBACK(menu_load_preset_acb)
       plot_printf(b->text, sizeof(b->text), "EMPTY %d", (int)data);
     return;
   }
+  int old_mode = setting.mode;
   if (caldata_recall(data) == -1) {
     if (data == 0)
       reset_settings(setting.mode);  // Restore factory defaults
   }
-  menu_move_back(true);
+  menu_preset_loaded(old_mode);
 }
 
 static UI_FUNCTION_ADV_CALLBACK(menu_store_preset_acb)
@@ -4758,6 +4776,7 @@ const menuitem_t  menu_lowoutputmode[] = {
 #ifdef TINYSA4
   { MT_FORM | MT_ADV_CALLBACK,  255, "OUTPUT: %s",     menu_lowoutput_settings_acb},
 #endif
+  { MT_FORM | MT_SUBMENU,  0,                   "PRESET",           menu_load_preset},
   { MT_FORM | MT_CANCEL,   0,                   "MODE",             NULL },
   { MT_FORM | MT_NONE, 0, NULL, NULL } // sentinel
 };
@@ -4775,6 +4794,7 @@ const menuitem_t  menu_highoutputmode[] = {
 #ifdef TINYSA4
   { MT_FORM | MT_SUBMENU,  255, S_RARROW" Settings", menu_settings3},
 #endif
+  { MT_FORM | MT_SUBMENU,   0,          "PRESET",           menu_load_preset},
   { MT_FORM | MT_CANCEL,    0,          "MODE",             NULL },
   { MT_FORM | MT_NONE, 0, NULL, NULL } // sentinel
 };

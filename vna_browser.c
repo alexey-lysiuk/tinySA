@@ -468,7 +468,14 @@ static void browser_key_press(int key) {
     break;
     case FILE_BUTTON_FILE:  // Open or delete file
     default:
+    {
+      int old_mode = setting.mode;
       browser_open_file(key - FILE_BUTTON_FILE + (current_page - 1) * FILES_PER_PAGE);
+      if (!sel_mode && keypad_mode == FMT_PRS_FILE) {
+        menu_preset_loaded(old_mode);
+        return;
+      }
+    }
       if (sel_mode) {
         file_count = 0;     // Reeset file count (recalculate on draw page)
         selection = -1;     // Reset delection
