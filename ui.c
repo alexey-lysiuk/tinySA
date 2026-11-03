@@ -4134,14 +4134,14 @@ static UI_FUNCTION_ADV_CALLBACK(menu_settings_draw_line_acb){
 }
 #endif
 #ifdef __HAM_BAND__
+// data: 1 = HAM bands, 2 = band table (multi band off)
 static UI_FUNCTION_ADV_CALLBACK(menu_settings_ham_bands){
   (void)item;
-  (void)data;
   if(b){
-    b->icon = config.hambands ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
+    b->icon = config.hambands & data ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
     return;
   }
-  toggle_hambands();
+  config.hambands ^= data;
   redraw_request|= REDRAW_AREA;
 }
 #endif
@@ -5268,7 +5268,8 @@ static const menuitem_t menu_settings[] =
   { MT_CALLBACK,    FMT_BIN_FILE,   "DUMP\nFIRMWARE",       menu_sdcard_cb},
 #endif
 #ifdef __HAM_BAND__
-  { MT_ADV_CALLBACK, 0,         "HAM\nBANDS",         menu_settings_ham_bands},
+  { MT_ADV_CALLBACK, 1,         "HAM\nBANDS",         menu_settings_ham_bands},
+  { MT_ADV_CALLBACK, 2,         "SHOW\nBANDS",        menu_settings_ham_bands},
 #endif
 #ifdef __SD_CARD_LOAD__
   { MT_CALLBACK,    0 ,             "LOAD\nCONFIG.INI",     menu_load_config_cb},
@@ -5442,7 +5443,7 @@ static const menuitem_t menu_config2[] =
  { MT_SUBMENU,          0, "EXPERT\nCONFIG", menu_settings},
 #else
 #ifdef __HAM_BAND__
-  { MT_ADV_CALLBACK, 0,         "HAM\nBANDS",         menu_settings_ham_bands},
+  { MT_ADV_CALLBACK, 1,         "HAM\nBANDS",         menu_settings_ham_bands},
 #endif
  { MT_SUBMENU,          0, "EXPERT\nCONFIG", menu_settings2},
 #endif

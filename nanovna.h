@@ -1912,7 +1912,6 @@ extern int current_index;
 extern uint16_t actual_rbw_x10;
 
 void toggle_tracking(void);
-void toggle_hambands(void);
 void reset_calibration(void);
 void set_reflevel(float);
 void set_external_gain(float);

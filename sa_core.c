@@ -1115,12 +1115,6 @@ void toggle_mute(void)
   dirty = true;
 }
 
-void toggle_hambands(void)
-{
-  config.hambands = !config.hambands;
-  dirty = true;
-}
-
 void toggle_below_IF(void)
 {
   if (S_IS_AUTO(setting.below_IF ))

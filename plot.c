@@ -255,7 +255,16 @@ const int ham_band_max = 18;
 
 int ham_band(int x)      // Search which index in the frequency tabled matches with frequency  f using actual_rbw
 {
-  freq_t f = getFrequency(x)  + (setting.frequency_offset - FREQUENCY_SHIFT);
+  freq_t f = getFrequency(x);
+#ifdef __BANDS__
+  if ((config.hambands & 2) && !setting.multi_band)   // band table
+    for (int i = 0; i < BANDS_MAX; i++)
+      if (setting.bands[i].enabled && setting.bands[i].start <= f && f <= setting.bands[i].end)
+        return true;
+  if (!(config.hambands & 1))
+    return false;
+#endif
+  f += (setting.frequency_offset - FREQUENCY_SHIFT);
   int L = 0;
   int R =  ham_band_max - 1;
   while (L <= R) {
@@ -1233,6 +1242,20 @@ draw_cell(int m, int n)
   }
 #endif
 //  PULSE;
+#endif
+
+#ifdef __BANDS__
+  // Band table highlights (ham_band): name at the bottom left of each band
+  if ((config.hambands & 2) && !setting.multi_band && y0 + h >= HEIGHT - 12) {
+    ili9341_set_foreground(LCD_FG_COLOR);
+    for (int band = 0; band < BANDS_MAX; band++) {
+      band_t *b = &setting.bands[band];
+      if (!b->enabled || b->start > getFrequency(sweep_points - 1) || b->end < getFrequency(0)) continue;
+      i = 0;
+      while (getFrequency(i) < b->start) i++;
+      cell_printf(trace_index_x[i] + 2 - x0, HEIGHT - 12 - y0, "%s", b->name);
+    }
+  }
 #endif
 
   // Draw trigger and band splitter lines
