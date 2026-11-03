@@ -7442,6 +7442,11 @@ draw_menu_buttons(const menuitem_t *menu, uint32_t mask)
 #else
       ili9341_drawstring(text, text_offs, y+(button_height-linesFONT_GET_HEIGHT)/2);
 #endif
+      if (MT_MASK(m->type) == MT_SUBMENU) {   // Opens a submenu: small arrow in the top right corner
+        ili9341_set_background(LCD_MENU_TEXT_COLOR);
+        for (int r = -2; r <= 2; r++)
+          ili9341_fill(LCD_WIDTH - 6, y + 4 + r, 3 - (r < 0 ? -r : r), 1);
+      }
     }
   }
   // Cleanup other buttons (less flicker)
