@@ -1690,8 +1690,13 @@ static UI_FUNCTION_ADV_CALLBACK(menu_sweep_acb)
   (void)item;
   if (b){
     if (setting.level_sweep != 0 || get_sweep_frequency(ST_SPAN) != 0)  {
+#ifdef TINYSA4
+      plot_printf(b->text, sizeof b->text, "SW:%.3Q-%.3QHz %+ddB %.3Fs",
+                  get_sweep_frequency(ST_START), get_sweep_frequency(ST_STOP),
+#else
       plot_printf(b->text, sizeof b->text, "SW:%3.2fMHz %+ddB %.3Fs",
                   get_sweep_frequency(ST_SPAN) / 1000000.0,
+#endif
                   (int)setting.level_sweep,
                   setting.sweep_time_us/(float)ONE_SECOND_TIME);
     }
