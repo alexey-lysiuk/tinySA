@@ -4615,27 +4615,15 @@ __attribute__((noinline)) static void fw_update_ui(const char *fname) {
 
 
 
-static UI_FUNCTION_ADV_CALLBACK(menu_autoname_acb)
+// Toggle the config._mode bit in data
+static UI_FUNCTION_ADV_CALLBACK(menu_config_mode_acb)
 {
   (void)item;
-  (void)data;
   if (b){
-    b->icon = config._mode & _MODE_AUTO_FILENAME ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
+    b->icon = config._mode & data ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
     return;
   }
-  config._mode^= _MODE_AUTO_FILENAME;
-  config_save();
-}
-
-static UI_FUNCTION_ADV_CALLBACK(menu_mhz_csv_acb)
-{
-  (void)item;
-  (void)data;
-  if (b){
-    b->icon = config._mode & _MODE_MHZ_CSV ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
-    return;
-  }
-  config._mode^= _MODE_MHZ_CSV;
+  config._mode^= data;
   config_save();
 }
 
@@ -4871,6 +4859,7 @@ const menuitem_t menu_marker_search[] = {
   { MT_ADV_CALLBACK, 0, "ENTER\n%s",          menu_enter_marker_acb},
   { MT_ADV_CALLBACK, M_TRACKING,    "TRACKING",menu_marker_modify_acb },
 #ifdef TINYSA4
+  { MT_ADV_CALLBACK, _MODE_MARKER_ORDER, "TRACKING\nL"S_RARROW"R", menu_config_mode_acb },
   { MT_ADV_CALLBACK, 0,    "JOG JUMP\nMAX",menu_jog_jump_acb },
   { MT_KEYPAD,   KM_NOISE,      "PEAK\n\b%s",   "2..120 dB"},
 #endif
@@ -5640,8 +5629,8 @@ static const menuitem_t menu_storage_sd_icon[] = {
 };
 
 static const menuitem_t menu_storage_more[] = {
-  { MT_ADV_CALLBACK, 0,       "AUTO NAME",              menu_autoname_acb },
-  { MT_ADV_CALLBACK, 0,       "MHz\nCSV",               menu_mhz_csv_acb },
+  { MT_ADV_CALLBACK, _MODE_AUTO_FILENAME, "AUTO NAME",    menu_config_mode_acb },
+  { MT_ADV_CALLBACK, _MODE_MHZ_CSV,       "MHz\nCSV",     menu_config_mode_acb },
   { MT_SUBMENU,      0,       "SD CARD\nICON",          menu_storage_sd_icon },
 #ifdef __USE_USB_MSC__
   { MT_CALLBACK,     0,       "USB\nDISK",              menu_usb_disk_cb },

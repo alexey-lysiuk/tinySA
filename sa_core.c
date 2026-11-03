@@ -5769,6 +5769,23 @@ static volatile int dummy;
       if (MODE_INPUT(setting.mode)) {               // Assign maxima found to tracking markers
         int i = 0;
         int m = 0;
+#ifdef TINYSA4
+        if (config._mode & _MODE_MARKER_ORDER) {    // The highest maxima, one per tracking marker, left to right
+          for (; m < MARKERS_MAX; m++)
+            if (markers[m].enabled && markers[m].mtype & M_TRACKING && markers[m].trace == t)
+              i++;
+          if (i > cur_max) i = cur_max;
+          while (--i > 0) {                         // Bubble sort these first maxima on frequency
+            for (m = 0; m < i; m++)
+              if (max_index[m] > max_index[m+1]) {
+                uint16_t s = max_index[m];
+                max_index[m] = max_index[m+1];
+                max_index[m+1] = s;
+              }
+          }
+          i = m = 0;
+        }
+#endif
         while (i < cur_max) {                                 // For all maxima found
           while (m < MARKERS_MAX) {
             if (markers[m].enabled && markers[m].mtype & M_TRACKING && markers[m].trace == t) {   // Available marker found

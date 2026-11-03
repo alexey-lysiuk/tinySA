@@ -818,6 +818,8 @@ float marker_to_value(const int i);
 // auto name
 #define _MODE_AUTO_FILENAME    0x10
 #define _MODE_MHZ_CSV          0x20
+// tracking markers left to right
+#define _MODE_MARKER_ORDER     0x40
 
 #ifdef __USE_SD_CARD__
 // SD Icon Save (SDIS) configuration
