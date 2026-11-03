@@ -1566,7 +1566,7 @@ static const struct {
 #ifdef __USE_RTC__
 [KM_RTC_DATE]     = {keypads_positive    , "SET DATE\n YYMMDD"}, // Date
 [KM_RTC_TIME]     = {keypads_positive    , "SET TIME\n HHMMSS"}, // Time
-[KM_INTERVAL]     = {keypads_positive    , "SET INTERVAL\n HHMMSS"}, // Interval
+[KM_INTERVAL]     = {keypads_positive    , "REPEAT\nHHMMSS"}, // Interval
 #endif
 [KM_PRESET_NAME]   = {keypads_text ,          "NAME"},  // KM_PRESET_NAME
 #endif
@@ -5635,6 +5635,7 @@ static const menuitem_t menu_stimulus[] = {
 static const menuitem_t menu_storage_sd_icon[] = {
   { MT_ADV_CALLBACK, 0,       "SAVE\nCAPTURE",     menu_sd_icon_save_capture_acb },
   { MT_ADV_CALLBACK, 0,       "SAVE\nTRACES",      menu_sd_icon_save_traces_acb },
+  { MT_KEYPAD,       KM_INTERVAL, "REPEAT\n\b%s",  "0 = single save" },
   { MT_NONE,         0,       NULL,                menu_back }
 };
 
@@ -8376,7 +8377,7 @@ static void sa_save_file(uint8_t format) {
 #endif
 
   // Prepare filename and open for write
-  if (config._mode & _MODE_AUTO_FILENAME) {   // Auto name, use date / time
+  if ((config._mode & _MODE_AUTO_FILENAME) || sd_repeat) {   // Auto name, use date / time
 #if FF_USE_LFN >= 1
     uint32_t tr = rtc_get_tr_bcd(); // TR read first
     uint32_t dr = rtc_get_dr_bcd(); // DR read second
@@ -8546,6 +8547,17 @@ void save_csv(uint8_t mask) {
   menu_sdcard_cb(0, FMT_CSV_FILE);
 }
 
+bool sd_repeat;                     // SD icon saves every setting.interval seconds
+static systime_t sd_repeat_start;
+
+static void sd_icon_save(void) {
+  sd_repeat_start = chVTGetSystemTimeX();
+  if (config.sd_icon_save & SDIS_CAPTURE)
+    menu_sdcard_cb(0, FMT_BMP_FILE);
+  if (config.sd_icon_save & SDIS_TRACES)
+    menu_save_traces_cb(0, 0);
+}
+
 static bool
 made_screenshot(int touch_x, int touch_y) {
   if (touch_y < SD_CARD_START || touch_y > SD_CARD_START + 20 || touch_x > OFFSETX)
@@ -8553,10 +8565,12 @@ made_screenshot(int touch_x, int touch_y) {
   ili9341_set_background(LCD_BG_COLOR);
   ili9341_fill(4, SD_CARD_START, 16, 16);
   touch_wait_release();
-  if (config.sd_icon_save & SDIS_CAPTURE)
-    menu_sdcard_cb(0, FMT_BMP_FILE);
-  if (config.sd_icon_save & SDIS_TRACES)
-    menu_save_traces_cb(0, 0);
+  if (setting.interval) {               // Repeat set: the icon starts and stops saving every interval
+    sd_repeat = !sd_repeat;
+    redraw_request |= REDRAW_BATTERY;   // icon color
+    if (!sd_repeat) return TRUE;
+  }
+  sd_icon_save();
   return TRUE;
 }
 #endif
@@ -8716,36 +8730,14 @@ void ui_process_touch(void)
 
 static uint16_t previous_button_state = 0;
 
-#ifdef TINYSA4
-uint64_t time_since_start = 0;
-uint64_t interval_stop_time = 0;
-
-systime_t old_ticks;
-void set_interval_stop_time(void)
-{
-  if (setting.interval == 0) {
-    interval_stop_time = 0;
-  } else {
-    interval_stop_time = time_since_start + CH_CFG_ST_FREQUENCY * (uint64_t)setting.interval;
-  }
-}
-#endif
-
-
 void
 ui_process(void)
 {
-#ifdef TINYSA4
-  systime_t ticks = chVTGetSystemTimeX();
-  if (ticks < old_ticks)
-    time_since_start += 0x100000000;
-  old_ticks = ticks;
-  time_since_start = (time_since_start & 0xffffffff00000000) | ticks;
-
-  if (interval_stop_time != 0 && interval_stop_time < time_since_start) {
-    set_interval_stop_time();
-  }
-
+#ifdef __USE_SD_CARD__
+  // SD icon repeat, only from the normal screen: a capture would close an open menu
+  if (sd_repeat && setting.interval && ui_mode == UI_NORMAL &&
+      chVTGetSystemTimeX() - sd_repeat_start >= (systime_t)setting.interval * CH_CFG_ST_FREQUENCY)
+    sd_icon_save();
 #endif
 
   int button_state = READ_PORT() & BUTTON_MASK;

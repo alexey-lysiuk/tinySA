@@ -829,6 +829,7 @@ float marker_to_value(const int i);
 #define SDIS_VALID_MASK (1 << 7)
 #define SDIS_DEFAULT (SDIS_CAPTURE | SDIS_VALID_MASK)
 #define SDIS_IS_ENABLED ((config.sd_icon_save & ~SDIS_VALID_MASK) != 0)
+extern bool sd_repeat;
 #endif // __USE_SD_CARD__
 
 #pragma pack(push, 4)
