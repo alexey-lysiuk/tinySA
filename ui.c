@@ -212,6 +212,7 @@ int btn_side(void)
 static int btn_check(void)
 {
   systime_t ticks;
+  shell_run_pending(true);            // capture while a screen waits for the jog button
 #ifdef __WATCHDOG__
   wdgReset(&WDGD1);
 #endif
@@ -402,6 +403,7 @@ static void touch_init(void){
 static int
 touch_check(void)
 {
+  shell_run_pending(true);            // capture while a screen waits for a touch
 #ifdef TINYSA4
   if (setting.lock_display)
     return EVT_TOUCH_NONE;

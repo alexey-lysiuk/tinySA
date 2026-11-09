@@ -293,6 +293,7 @@ void my_veryfast_delay(int t);
 float my_atof(const char *p);
 freq_t my_atoui(const char *p);
 int shell_printf(const char *fmt, ...);
+void shell_run_pending(bool ui_wait);   // run a console command in the sweep thread
 int usage_printf(const char *fmt, ...);
 void clear_backup(void);
 const char *get_hw_version_text(void);
@@ -380,7 +381,6 @@ enum {
 //#define SWEEP_FACTORY    0x20
 #endif
 #define SWEEP_CALIBRATE_HARMONIC 0x40
-#define SWEEP_UI_MODE   0x80
 
 extern uint8_t sweep_mode;
 extern uint8_t completed;

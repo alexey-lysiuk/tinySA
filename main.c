@@ -63,6 +63,7 @@ char shell_line[VNA_SHELL_MAX_LENGTH];
 char *shell_args[VNA_SHELL_MAX_ARGUMENTS + 1];
 uint16_t shell_nargs;
 static volatile vna_shellcmd_t  shell_function = 0;
+static volatile bool shell_function_ui;     // shell_function may also run in a UI wait loop (CMD_RUN_IN_UI)
 
 //#define ENABLED_DUMP
 // Allow get threads debug info
@@ -143,6 +144,49 @@ systime_t restart_interval = 0;
 static THD_WORKING_AREA(waThread1, 768);
 bool has_esd = false;
 #endif
+// Run the console command the shell thread handed over. Always in the sweep thread, so a command
+// never uses the LCD at the same time as the screen (two threads on the SPI DMA hang the tinySA).
+// ui_wait: called from a loop that waits for the user (keypad, version screen, "touch to continue"),
+// there only a CMD_RUN_IN_UI command (capture) runs, the others wait for the sweep loop.
+void shell_run_pending(bool ui_wait)
+{
+  chSysLock();
+  vna_shellcmd_t local_func = shell_function;
+  if (ui_wait && !shell_function_ui)
+    local_func = 0;
+  else {
+    shell_function = 0;
+    shell_function_ui = false;
+    // The shell sets OP_CONSOLE together with shell_function, a request without a
+    // command (direct command, timed out command) has done its job: the sweep stopped
+    operation_requested &= ~OP_CONSOLE;
+  }
+  chSysUnlock();
+
+  if (local_func) {
+    if (!ui_wait)                  // a UI wait loop keeps a pending touch or lever event
+      operation_requested = OP_NONE; // otherwise commands will be aborted
+    local_func(shell_nargs - 1, &shell_args[1]);
+
+    if (ui_wait || operation_requested == OP_NONE) // Don't prompt if aborted
+      shell_printf(VNA_SHELL_PROMPT_STR);
+
+    // Resume shell thread
+    if (!abort_enabled) {
+      chSysLock();
+      osalThreadDequeueNextI(&shell_thread, MSG_OK);
+      chSysUnlock();
+    }
+
+    if (dirty && !ui_wait) {      // not over the screen that waits
+      if (MODE_OUTPUT(setting.mode))
+        draw_menu();    // update screen if in output mode and dirty
+      else
+        redraw_request |= REDRAW_CAL_STATUS | REDRAW_AREA | REDRAW_FREQUENCY;
+    }
+  }
+}
+
 static THD_FUNCTION(Thread1, arg)
 {
   (void)arg;
@@ -262,38 +306,7 @@ static THD_FUNCTION(Thread1, arg)
         __WFI();
     }
 //  STOP_PROFILE
-    // Run Shell command in sweep thread
-    vna_shellcmd_t local_func;
-
-    chSysLock();
-    local_func = shell_function;
-    shell_function = 0;
-    // The shell sets OP_CONSOLE together with shell_function, a request without a
-    // command (direct command, timed out command) has done its job: the sweep stopped
-    operation_requested &= ~OP_CONSOLE;
-    chSysUnlock();
-
-    if (local_func) {
-      operation_requested = OP_NONE; // otherwise commands will be aborted
-      local_func(shell_nargs - 1, &shell_args[1]);
-
-      if (operation_requested == OP_NONE) // Don't prompt if aborted
-        shell_printf(VNA_SHELL_PROMPT_STR);
-
-      // Resume shell thread
-      if (!abort_enabled) {
-        chSysLock();
-        osalThreadDequeueNextI(&shell_thread, MSG_OK);
-        chSysUnlock();
-      }
-
-      if (dirty) {
-        if (MODE_OUTPUT(setting.mode))
-          draw_menu();    // update screen if in output mode and dirty
-        else
-          redraw_request |= REDRAW_CAL_STATUS | REDRAW_AREA | REDRAW_FREQUENCY;
-      }
-    }
+    shell_run_pending(false);
 #ifdef __USE_USB_MSC__
     // "usbdisk on" from the shell
     if (msc_enter_request) {
@@ -304,11 +317,8 @@ static THD_FUNCTION(Thread1, arg)
 #endif
 //    START_PROFILE
     // Process UI inputs
-    if (!(sweep_mode & SWEEP_SELFTEST)) {
-      sweep_mode|= SWEEP_UI_MODE;
+    if (!(sweep_mode & SWEEP_SELFTEST))
       ui_process();
-      sweep_mode&=~SWEEP_UI_MODE;
-    }
     // Process collected data, calculate trace coordinates and plot only if scan
     // completed
     if (completed) {
@@ -3193,8 +3203,6 @@ static void VNAShell_executeLine(char *line)
   const VNAShellCommand *scp = VNAShell_parceLine(line);
   if (scp) {
     uint16_t cmd_flag = scp->flags;
-    // Skip wait mutex if process UI
-    if ((cmd_flag & CMD_RUN_IN_UI) && (sweep_mode&SWEEP_UI_MODE)) cmd_flag&=~CMD_WAIT_MUTEX;
 #ifdef __USE_USB_MSC__
     // In USB DISK mode SPI1 and spi_buffer belong to the mass storage, only run commands that do not use them.
     // shell_direct_cmd tells usb_disk_mode() to wait for a command already running in this thread.
@@ -3217,13 +3225,15 @@ static void VNAShell_executeLine(char *line)
       return;
     }
 #endif
-    // The sweep thread stays in an open keypad until it closes: answer at once instead of a 20 s timeout
-    if ((cmd_flag & CMD_WAIT_MUTEX) && keypad_open) {
+    // The sweep thread stays in an open keypad until it closes: answer at once instead of a 20 s timeout.
+    // A CMD_RUN_IN_UI command (capture) runs there in shell_run_pending().
+    if ((cmd_flag & (CMD_WAIT_MUTEX | CMD_RUN_IN_UI)) == CMD_WAIT_MUTEX && keypad_open) {
       shell_printf("keypad active" VNA_SHELL_NEWLINE_STR VNA_SHELL_PROMPT_STR);
       return;
     }
     if (cmd_flag & CMD_WAIT_MUTEX) {
       chSysLock();
+      shell_function_ui = cmd_flag & CMD_RUN_IN_UI;
       shell_function = scp->sc_function;
       operation_requested|=OP_CONSOLE;      // this will abort current sweep to give priority to the new request
       chSysUnlock();
