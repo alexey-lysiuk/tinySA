@@ -5945,7 +5945,7 @@ static void fetch_numeric_target(uint8_t mode)
     plot_printf(uistat.text, sizeof uistat.text, out_format, uistat.freq_value);
     break;
   case KM_BAND_SPAN:
-    uistat.freq_value = abs((long)setting.bands[active_band].end-(long)setting.bands[active_band].start);
+    uistat.freq_value = setting.bands[active_band].end - setting.bands[active_band].start;
 #ifdef TINYSA4
     if (uistat.freq_value > 990000000UL)
       out_format = "%.6Q";
@@ -6233,28 +6233,21 @@ set_numeric_value(void)
 //    BANDs_update();
     break;
   case KM_BAND_CENTER:
+  case KM_BAND_SPAN:
   {
-    freq_t span = abs((long)setting.bands[active_band].end - (long)setting.bands[active_band].start);
-    freq_t center = uistat.freq_value - (setting.frequency_offset - FREQUENCY_SHIFT);
-    setting.bands[active_band].start = center - span/2;
-    setting.bands[active_band].end = center + span/2;
+    band_t *b = &setting.bands[active_band];
+    freq_t center = (b->end + b->start)/2;
+    freq_t span = b->end - b->start;            // START and STOP keep start <= end
+    if (keypad_mode == KM_BAND_CENTER)
+      center = uistat.freq_value - (setting.frequency_offset - FREQUENCY_SHIFT);
+    else
+      span = uistat.freq_value;
+    b->start = center > span/2 ? center - span/2 : 0;   // unsigned, a new band (0..0) with a span went "below 0 Hz"
+    b->end = b->start + span;
     update_frequencies();
     dirty = true;
     update_grid();
   }
-//    BANDs_update();
-    break;
-  case KM_BAND_SPAN:
-    {
-    freq_t span = uistat.freq_value;
-    freq_t center =  (setting.bands[active_band].end + setting.bands[active_band].start)/2;
-    setting.bands[active_band].start = center - span/2;
-    setting.bands[active_band].end = center + span/2;
-    update_frequencies();
-    dirty = true;
-    update_grid();
-//    BANDs_update();
-    }
     break;
   case KM_BAND_LEVEL:
     setting.bands[active_band].level = to_dBm(uistat.value);

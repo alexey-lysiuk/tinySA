@@ -87,6 +87,11 @@ static char *long_to_string_with_divisor(char *p,
 // default prescision = 13
 // g.mmm kkk hhh
 #define MAX_FREQ_PRESCISION 15
+#ifdef TINYSA4
+#define FREQ_DIGITS         23  // any 64 bit value: 20 digits and 3 separators, fits tmpbuf[2*MAX_FILLER + 1]
+#else
+#define FREQ_DIGITS         MAX_FREQ_PRESCISION
+#endif
 #define FREQ_PSET           1
 #define FREQ_NO_SPACE       2
 #define FREQ_PREFIX_SPACE   4
@@ -99,7 +104,7 @@ ulong_freq(char *p, ulong_t freq, uint32_t width, uint32_t precision)
 
   if (/* precision == 0 || */ precision > MAX_FREQ_PRESCISION)
     precision = MAX_FREQ_PRESCISION;
-  char *q = p + MAX_FREQ_PRESCISION;
+  char *q = p + FREQ_DIGITS;  // digits are written backwards from here
   char *b = q;
   // Prefix counter
   uint32_t s = 0;
