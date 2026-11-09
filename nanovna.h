@@ -293,6 +293,7 @@ void my_veryfast_delay(int t);
 float my_atof(const char *p);
 freq_t my_atoui(const char *p);
 int shell_printf(const char *fmt, ...);
+void shell_run_pending(bool ui_wait);   // run a console command in the sweep thread
 int usage_printf(const char *fmt, ...);
 void clear_backup(void);
 const char *get_hw_version_text(void);
@@ -380,7 +381,6 @@ enum {
 //#define SWEEP_FACTORY    0x20
 #endif
 #define SWEEP_CALIBRATE_HARMONIC 0x40
-#define SWEEP_UI_MODE   0x80
 
 extern uint8_t sweep_mode;
 extern uint8_t completed;
@@ -818,6 +818,8 @@ float marker_to_value(const int i);
 // auto name
 #define _MODE_AUTO_FILENAME    0x10
 #define _MODE_MHZ_CSV          0x20
+// tracking markers left to right
+#define _MODE_MARKER_ORDER     0x40
 
 #ifdef __USE_SD_CARD__
 // SD Icon Save (SDIS) configuration
@@ -829,6 +831,7 @@ float marker_to_value(const int i);
 #define SDIS_VALID_MASK (1 << 7)
 #define SDIS_DEFAULT (SDIS_CAPTURE | SDIS_VALID_MASK)
 #define SDIS_IS_ENABLED ((config.sd_icon_save & ~SDIS_VALID_MASK) != 0)
+extern bool sd_repeat;
 #endif // __USE_SD_CARD__
 
 #pragma pack(push, 4)
@@ -1909,7 +1912,6 @@ extern int current_index;
 extern uint16_t actual_rbw_x10;
 
 void toggle_tracking(void);
-void toggle_hambands(void);
 void reset_calibration(void);
 void set_reflevel(float);
 void set_external_gain(float);

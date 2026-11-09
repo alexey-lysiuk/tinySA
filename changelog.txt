@@ -1,3 +1,15 @@
+V1.4302 2026-11-09 For all tinySA models
+- Signal generator: PRESET in the generator menu loads and stores presets (on the tinySA Ultra also from and to SD). A loaded preset opens the menu of its own mode, and a signal generator preset loaded from the menu starts with the output off
+- The SW button of the signal generator shows the start and stop frequency of the sweep (Ultra only)
+- STORAGE > MORE > SD CARD ICON > REPEAT: with a repeat time set, touching the SD card icon starts saving every interval (with automatic file names) and touching it again stops, the icon is red while it repeats (Ultra only)
+- MARKER > SEARCH MARKER > TRACKING L->R: the tracking markers stay on the highest peaks in frequency order from left to right instead of changing places (Ultra only)
+- CONFIG > MORE > EXPERT CONFIG > SHOW BANDS: with MULTI BAND off the bands of the band table (e.g. loaded from a .bnd file) are highlighted with their names (Ultra only)
+- File browser: REN renames a file, the name keypad starts with the current name (Ultra only)
+- Menu buttons that open a submenu show a small arrow in the top right corner
+- Fixed a crash when a band frequency went below 0 Hz, e.g. after entering only a SPAN for a new band: such a band now starts at 0 Hz. A band wider than 2.1 GHz also showed a wrong SPAN and changed its width when its CENTER was set (Ultra only)
+- Screen capture ("capture" console command) no longer draws at the same time as the tinySA itself: capturing the VERSION screen hung the tinySA Ultra, the end screen of the level calibration gave "Command timeout"
+- Level calibration: "Touch screen to continue" was drawn below the screen (tinySA basic only)
+
 V1.4290 2026-11-02 For all tinySA models
 - Recalling a preset turns NORMALIZE off: the normalization reference trace is not stored in a preset, so the normalized trace was wrong
 - Trace CSV files load with their own start and stop frequency again: with CONFIG > MHz CSV (the default) the frequencies were read as Hz (Ultra only)

@@ -1115,12 +1115,6 @@ void toggle_mute(void)
   dirty = true;
 }
 
-void toggle_hambands(void)
-{
-  config.hambands = !config.hambands;
-  dirty = true;
-}
-
 void toggle_below_IF(void)
 {
   if (S_IS_AUTO(setting.below_IF ))
@@ -5769,6 +5763,23 @@ static volatile int dummy;
       if (MODE_INPUT(setting.mode)) {               // Assign maxima found to tracking markers
         int i = 0;
         int m = 0;
+#ifdef TINYSA4
+        if (config._mode & _MODE_MARKER_ORDER) {    // The highest maxima, one per tracking marker, left to right
+          for (; m < MARKERS_MAX; m++)
+            if (markers[m].enabled && markers[m].mtype & M_TRACKING && markers[m].trace == t)
+              i++;
+          if (i > cur_max) i = cur_max;
+          while (--i > 0) {                         // Bubble sort these first maxima on frequency
+            for (m = 0; m < i; m++)
+              if (max_index[m] > max_index[m+1]) {
+                uint16_t s = max_index[m];
+                max_index[m] = max_index[m+1];
+                max_index[m+1] = s;
+              }
+          }
+          i = m = 0;
+        }
+#endif
         while (i < cur_max) {                                 // For all maxima found
           while (m < MARKERS_MAX) {
             if (markers[m].enabled && markers[m].mtype & M_TRACKING && markers[m].trace == t) {   // Available marker found
@@ -7946,6 +7957,14 @@ void calibrate_harmonic(void)
 }
 #endif
 
+// First of the three 20 pixel message lines at the end of the calibration, the last one
+// ("Touch screen to continue") must be on the 240 pixel screen of the tinySA
+#ifdef TINYSA4
+#define CAL_MSG_Y   200
+#else
+#define CAL_MSG_Y   180
+#endif
+
 void calibrate(void)
 {
   int local_test_status;
@@ -8198,14 +8217,14 @@ void calibrate(void)
 low_level:
 #endif
           ili9341_set_foreground(LCD_BRIGHT_COLOR_RED);
-          ili9341_drawstring_7x13("Signal level incorrect", 30, 200);
-          ili9341_drawstring_7x13("Check cable between connectors", 30, 220);
+          ili9341_drawstring_7x13("Signal level incorrect", 30, CAL_MSG_Y);
+          ili9341_drawstring_7x13("Check cable between connectors", 30, CAL_MSG_Y + 20);
           goto quit;
         }
         //    chThdSleepMilliseconds(1000);
         if (local_test_status != TS_PASS) {
           ili9341_set_foreground(LCD_BRIGHT_COLOR_RED);
-          ili9341_drawstring_7x13("Calibration failed", 30, 220);
+          ili9341_drawstring_7x13("Calibration failed", 30, CAL_MSG_Y + 20);
           goto quit;
         }
 #ifdef TINYSA4
@@ -8285,12 +8304,12 @@ low_level:
 #endif
   config_save();
   ili9341_set_foreground(LCD_BRIGHT_COLOR_GREEN);
-  ili9341_drawstring_7x13("Calibration complete", 40, 220);
+  ili9341_drawstring_7x13("Calibration complete", 40, CAL_MSG_Y + 20);
 quit:
 #ifdef TINYSA4
   config.ultra = old_ultra;
 #endif
-  ili9341_drawstring_7x13("Touch screen to continue", 40, 240);
+  ili9341_drawstring_7x13("Touch screen to continue", 40, CAL_MSG_Y + 40);
   wait_user();
   ili9341_clear_screen();
   set_sweep_points(old_sweep_points);
