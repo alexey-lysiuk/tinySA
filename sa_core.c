@@ -343,6 +343,10 @@ void set_output_path(freq_t f, float level)
     signal_path = PATH_OFF;
 
   set_path:
+#ifdef __BURST__
+  // Before the TX (re)start: burst only where the Si4468 makes the output, not from the ADF directly
+  SI4463_burst_mode(setting.modulation == MO_BURST && (signal_path == PATH_LOW || signal_path == PATH_DIRECT || signal_path == PATH_ULTRA));
+#endif
   switch(signal_path) {
   case PATH_OFF:
     if (SI4463_is_in_tx_mode())
@@ -686,6 +690,11 @@ void reset_settings(int m)
 #ifdef TINYSA4
   setting.modulation_depth_x100 = 80; // %80
   setting.modulation_deviation_div100 = 30; // 3kHz
+#endif
+#ifdef __BURST__
+  setting.burst_period = BURST_DEFAULT_PERIOD;
+  setting.burst_on_time = BURST_DEFAULT_ON_TIME;
+  setting.burst_count = 0;          // continuous
 #endif
   setting.step_delay = 0;
   setting.offset_delay = 0;
@@ -1129,8 +1138,64 @@ void toggle_below_IF(void)
 void set_modulation(int m)
 {
   setting.modulation = m;
+#ifdef __BURST__
+  if (m == MO_BURST && setting.burst_period == 0) {   // preset saved before burst existed
+    setting.burst_period = BURST_DEFAULT_PERIOD;
+    setting.burst_on_time = BURST_DEFAULT_ON_TIME;
+  }
+#endif
   dirty = true;
 }
+
+#ifdef __BURST__
+enum { BURST_CHANGED = 1, BURST_TRIGGER };
+static volatile uint8_t burst_request;           // handled by the modulation loop in perform(), no RF re-setup
+
+void set_burst_period(float p)
+{
+  if (p < 2 * BURST_MIN_TIME)
+    p = 2 * BURST_MIN_TIME;
+  if (p > BURST_MAX_PERIOD)
+    p = BURST_MAX_PERIOD;
+  setting.burst_period = p;
+  set_burst_on_time(setting.burst_on_time);      // shorten the ON time when it no longer fits
+}
+
+void set_burst_on_time(float t)
+{
+  if (t > setting.burst_period - BURST_MIN_TIME)
+    t = setting.burst_period - BURST_MIN_TIME;
+  if (t < BURST_MIN_TIME)
+    t = BURST_MIN_TIME;
+  setting.burst_on_time = t;
+  burst_request = BURST_CHANGED;
+}
+
+void set_burst_count(int c)
+{
+  if (c < 0)
+    c = 0;
+  if (c > 65535)
+    c = 65535;
+  setting.burst_count = c;
+  burst_request = BURST_CHANGED;
+}
+
+void burst_trigger(void)
+{
+  burst_request = BURST_TRIGGER;
+}
+
+static void burst_start(void)                    // continuous, or COUNT bursts after a trigger
+{
+  uint8_t r = burst_request;
+  burst_request = 0;
+  if (setting.burst_count == 0 || r == BURST_TRIGGER)
+    SI4463_burst_start(setting.burst_period, setting.burst_on_time, setting.burst_count);
+  else
+    SI4463_burst_stop();                         // COUNT bursts wait for a trigger
+}
+#endif
 
 #ifdef TINYSA4
 void set_deviation(int d)
@@ -4015,6 +4080,12 @@ pureRSSI_t perform(bool break_on_operation, int i, freq_t f, int tracking)     /
 
   int *current_fm_modulation = 0;
   if (MODE_OUTPUT(setting.mode)) {
+#ifdef __BURST__
+    if (setting.modulation == MO_BURST) {
+      if (i == 1)                               // LO's are set: TIM8 keys the Si4468 from here, the PLL's are not touched
+        burst_start();
+    } else
+#endif
     if (setting.modulation != MO_NONE && setting.modulation != MO_EXTERNAL && setting.modulation_frequency != 0) {
       modulation_counter = 0;
       cycle_counter = 0;
@@ -4038,6 +4109,13 @@ pureRSSI_t perform(bool break_on_operation, int i, freq_t f, int tracking)     /
     }
   }
 modulation_again:
+#ifdef __BURST__
+  if (MODE_OUTPUT(setting.mode) && setting.modulation == MO_BURST) {
+    if (i == 1 && burst_request)                // new burst settings or a trigger: reload TIM8 only
+      burst_start();
+    chThdSleepMilliseconds(1);
+  } else
+#endif
   // -----------------------------------------------------  apply modulation for output modes ---------------------------------------
   if (MODE_OUTPUT(setting.mode) && setting.modulation != MO_NONE && setting.modulation != MO_EXTERNAL){
     if (setting.modulation == MO_AM) {               // AM modulation
@@ -4755,8 +4833,12 @@ again:                                                              // Spur redu
       start_of_sweep_timestamp = chVTGetSystemTimeX();                      // initialize start sweep time
 
     if (MODE_OUTPUT(setting.mode)) {               // No substepping and no RSSI in output mode
-      if (break_on_operation && operation_requested)          // break subscanning if requested
+      if (break_on_operation && operation_requested) {        // break subscanning if requested
+#ifdef __BURST__
+        SI4463_burst_stop();                                  // carrier off while the input is handled
+#endif
         return(0);         // abort
+      }
       if ( i==1 && MODE_OUTPUT(setting.mode) && setting.modulation != MO_NONE && setting.modulation != MO_EXTERNAL) { // if in output mode with modulation and LO setup done
 //        i = 1;              // Everything set so skip LO setting
 

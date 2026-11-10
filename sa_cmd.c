@@ -84,17 +84,25 @@ VNA_SHELL_FUNCTION(cmd_mode)
 
 VNA_SHELL_FUNCTION(cmd_modulation )
 {
-#ifdef TINYSA4
+#ifdef __BURST__
+  static const char cmd_mod[] = "off|am|fm|freq|depth|deviation|burst|period|ontime|count|trigger";
+#elif defined(TINYSA4)
   static const char cmd_mod[] = "off|am|fm|freq|depth|deviation";
 #else
   static const char cmd_mod[] = "off|am|nfm|wfm|extern|freq";
 #endif
   if (argc < 1) {
   usage:
+#ifdef __BURST__
+    usage_printf("modulation %s [value]\r\n", cmd_mod);
+#else
     usage_printf("modulation %s 100..6000\r\n", cmd_mod);
+#endif
     return;
   }
-#ifdef TINYSA4
+#ifdef __BURST__
+  static const int cmd_mod_val[] = { MO_NONE, MO_AM, MO_WFM, -1, -1, -1, MO_BURST, -1, -1, -1, -1};
+#elif defined(TINYSA4)
   static const int cmd_mod_val[] = { MO_NONE, MO_AM, MO_WFM, -1, -1, -1};
 #else
   static const int cmd_mod_val[] = { MO_NONE, MO_AM, MO_NFM, MO_WFM, MO_EXTERNAL, -1};
@@ -104,6 +112,10 @@ VNA_SHELL_FUNCTION(cmd_modulation )
      goto usage;
   if (cmd_mod_val[m] >=0)
     set_modulation(cmd_mod_val[m]);
+#ifdef __BURST__
+  else if (m == 10)
+    burst_trigger();
+#endif
   else {
     if (argc != 2)
       goto usage;
@@ -113,8 +125,16 @@ VNA_SHELL_FUNCTION(cmd_modulation )
     case 3: set_modulation_frequency(a); break;
     case 4: set_depth(a); break;
     case 5: set_deviation(a); break;
-
+#ifdef __BURST__
+    case 7: set_burst_period(my_atof(argv[1])); break;     // seconds, m/u suffix allowed
+    case 8: set_burst_on_time(my_atof(argv[1])); break;
+    case 9: set_burst_count(a); break;
+#endif
     }
+#ifdef __BURST__
+    if (m >= 7 && MODE_OUTPUT(setting.mode) && !msc_disk_mode)
+      draw_menu();                                          // burst settings do not set dirty: update the MOD button
+#endif
 #else
     set_modulation_frequency(a);
 #endif

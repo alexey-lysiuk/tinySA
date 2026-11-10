@@ -1485,6 +1485,9 @@ enum {
   KM_FILENAME,
 #endif
   KM_TRIGGER_GRID,
+#ifdef __BURST__
+  KM_BURST_PERIOD, KM_BURST_ON, KM_BURST_COUNT,
+#endif
   KM_NONE // always at enum end
 };
 
@@ -1577,6 +1580,11 @@ static const struct {
 [KM_FILENAME]     = {keypads_text        , "NAME"},  // filename
 #endif
 [KM_TRIGGER_GRID] = {keypads_time        , "INTERVAL"},              // KM_CODE
+#ifdef __BURST__
+[KM_BURST_PERIOD] = {keypads_plusmin_unit, "BURST\nPERIOD"},
+[KM_BURST_ON]     = {keypads_plusmin_unit, "BURST\nON TIME"},
+[KM_BURST_COUNT]  = {keypads_positive    , "BURST\nCOUNT"},
+#endif
 };
 
 #if 0 // Not used
@@ -1714,6 +1722,11 @@ static UI_FUNCTION_ADV_CALLBACK(menu_restart_acb){
   (void)item;
   (void)data;
   if(b){
+#ifdef __BURST__
+    if (setting.modulation == MO_BURST)
+      plot_printf(b->text, sizeof b->text, "START BURST");
+    else
+#endif
     if (setting.sweep) {
       if (current_index >= 0) {
         float current_level = setting.level + ((float)current_index)* setting.level_sweep / (float)sweep_points;
@@ -1725,6 +1738,12 @@ static UI_FUNCTION_ADV_CALLBACK(menu_restart_acb){
       plot_printf(b->text, sizeof b->text, "START SWEEP");
     return;
   }
+#ifdef __BURST__
+  if (setting.modulation == MO_BURST) {
+    burst_trigger();                      // COUNT bursts, or restart the continuous bursts
+    return;
+  }
+#endif
   setting.sweep = !setting.sweep;
   dirty = true;
 }
@@ -2551,7 +2570,11 @@ const char * const menu_modulation_text[MO_MAX]=
 #else
    "FM 3kHz",
 #endif
-   "FM 75kHz", "External"};
+   "FM 75kHz", "External",
+#ifdef __BURST__
+   "Burst",
+#endif
+};
 
 static UI_FUNCTION_ADV_CALLBACK(menu_modulation_acb)
 {
@@ -2588,9 +2611,20 @@ static UI_FUNCTION_ADV_CALLBACK(menu_audible_harmonic)
   (void)item;
   (void)data;
   if (b){
+#ifdef __BURST__
+    if (setting.modulation == MO_BURST) {         // blank button, CTCSS has no meaning for a burst
+      b->text[0] = 0;
+      return;
+    }
+#endif
+    plot_printf(b->text, sizeof b->text, "CTCSS + 1 kHz");
     b->icon = (config.wfm_1khz_harmonic && setting.modulation_frequency < MAX_CTCSS_FREQ) ? BUTTON_ICON_CHECK : BUTTON_ICON_NOCHECK;
     return;
   }
+#ifdef __BURST__
+  if (setting.modulation == MO_BURST)
+    return;
+#endif
   if (setting.modulation_frequency >= MAX_CTCSS_FREQ)
     return;
   config.wfm_1khz_harmonic = config.wfm_1khz_harmonic ? 0 : 100;  // Toggle between off and 100%
@@ -2607,6 +2641,15 @@ static UI_FUNCTION_ADV_CALLBACK(menu_smodulation_acb){
       plot_printf(b->text, sizeof b->text, "MOD: %s", menu_modulation_text[setting.modulation]);
     else {
 #ifdef TINYSA4
+#ifdef __BURST__
+      if (setting.modulation == MO_BURST) {
+        if (!setting.mixer_output && get_sweep_frequency(ST_STOP) >= MAX_LOW_OUTPUT_FREQ)  // output straight from the ADF, the Si4468 can not key it
+          plot_printf(b->text, sizeof b->text, "MOD: BURST N/A");
+        else
+          plot_printf(b->text, sizeof b->text, setting.burst_count ? "MOD: BURST %.3Fs/%.3Fs x%d" : "MOD: BURST %.3Fs/%.3Fs",
+                      setting.burst_on_time, setting.burst_period, setting.burst_count);
+      } else
+#endif
       if (setting.modulation == MO_AM)
         plot_printf(b->text, sizeof b->text, "MOD: %8.4FHz AM %d%%", setting.modulation_frequency, setting.modulation_depth_x100);
       else
@@ -4715,10 +4758,13 @@ static const menuitem_t  menu_modulation[] = {
   { MT_FORM | MT_ADV_CALLBACK | MT_LOW, MO_AM,      "AM",    menu_modulation_acb},
 #ifdef TINYSA4
   { MT_FORM | MT_ADV_CALLBACK, MO_WFM,              "FM",               menu_modulation_acb},
+#ifdef __BURST__
+  { MT_FORM | MT_ADV_CALLBACK, MO_BURST,            "BURST",            menu_modulation_acb},
+#endif
   { MT_FORM | MT_KEYPAD,   KM_MODULATION,           "FREQ: %s",         "1Hz..3.5kHz"},
   { MT_FORM | MT_KEYPAD,   KM_DEPTH,               "AM DEPTH: %s%%",         "0..100"},
   { MT_FORM | MT_KEYPAD,   KM_DEVIATION,            "FM DEVIATION: %s",         "1kHz..300kHz"},
-  { MT_FORM | MT_ADV_CALLBACK, 0,                   "CTCSS + 1 kHz", menu_audible_harmonic},
+  { MT_FORM | MT_ADV_CALLBACK, 0,                   MT_CUSTOM_LABEL,    menu_audible_harmonic},
 //  { MT_FORM | MT_ADV_CALLBACK, MO_NFM2,              MT_CUSTOM_LABEL,    menu_modulation_acb},
 //  { MT_FORM | MT_ADV_CALLBACK, MO_NFM3,              MT_CUSTOM_LABEL,    menu_modulation_acb},
 #else
@@ -4730,6 +4776,25 @@ static const menuitem_t  menu_modulation[] = {
   { MT_FORM | MT_ADV_CALLBACK, 0,                   "Level in dBuV", menu_level_in_dBuV},
   { MT_FORM | MT_NONE, 0, NULL, menu_back} // next-> menu_back
 };
+
+#ifdef __BURST__
+// In burst mode the FREQ, AM DEPTH and FM DEVIATION buttons of menu_modulation set the burst
+static const menuitem_t  menu_burst_keypads[] = {
+  { MT_FORM | MT_KEYPAD,   KM_BURST_PERIOD,         "PERIOD: %s",       "2us..89s"},
+  { MT_FORM | MT_KEYPAD,   KM_BURST_ON,             "ON TIME: %s",      "1us..PERIOD"},
+  { MT_FORM | MT_KEYPAD,   KM_BURST_COUNT,          "COUNT: %s",        "0=continuous..65535"},
+};
+
+static const menuitem_t *burst_item(const menuitem_t *m)      // m is a keypad item
+{
+  if (setting.modulation == MO_BURST) {
+    if (m->data == KM_MODULATION) return &menu_burst_keypads[0];
+    if (m->data == KM_DEPTH)      return &menu_burst_keypads[1];
+    if (m->data == KM_DEVIATION)  return &menu_burst_keypads[2];
+  }
+  return m;
+}
+#endif
 
 static const menuitem_t  menu_sweep[] = {
   { MT_FORM | MT_KEYPAD,   KM_SPAN,             "SPAN: %s",         VARIANT("0..350MHz", range_text)},
@@ -6036,6 +6101,23 @@ static void fetch_numeric_target(uint8_t mode)
     plot_printf(uistat.text, sizeof uistat.text, "%3d", (int)uistat.value);
     break;
 #endif
+#ifdef __BURST__
+  case KM_BURST_PERIOD:
+    uistat.value = setting.burst_period;
+    plot_printf(uistat.text, sizeof uistat.text, "%.3Fs", uistat.value);
+    break;
+  case KM_BURST_ON:
+    uistat.value = setting.burst_on_time;
+    plot_printf(uistat.text, sizeof uistat.text, "%.3Fs", uistat.value);
+    break;
+  case KM_BURST_COUNT:
+    uistat.value = setting.burst_count;
+    if (setting.burst_count)
+      plot_printf(uistat.text, sizeof uistat.text, "%d", setting.burst_count);
+    else
+      plot_printf(uistat.text, sizeof uistat.text, "CONTINUOUS");
+    break;
+#endif
   case KM_VAR:
     uistat.freq_value = setting.frequency_var;
     if ( setting.frequency_var)
@@ -6331,6 +6413,17 @@ set_numeric_value(void)
   case KM_DEPTH:
     set_depth((int)uistat.value);
     break;
+#ifdef __BURST__
+  case KM_BURST_PERIOD:
+    set_burst_period(uistat.value);
+    break;
+  case KM_BURST_ON:
+    set_burst_on_time(uistat.value);
+    break;
+  case KM_BURST_COUNT:
+    set_burst_count((int)uistat.value);
+    break;
+#endif
   case KM_PRESET_NAME:
     plot_printf(setting.preset_name, sizeof setting.preset_name, "%s", kp_buf);
     break;
@@ -7012,6 +7105,9 @@ menu_invoke(int item)
     break;
 
   case MT_KEYPAD:
+#ifdef __BURST__
+    menu = burst_item(menu);
+#endif
     uistat.auto_center_marker = false;
     if (current_menu_is_form()) {
       redraw_frame();         // Remove form numbers
@@ -7368,8 +7464,12 @@ draw_menu_buttons(const menuitem_t *menu, uint32_t mask)
       text = (char *)m->label;
     // Only keypad retrieves value
     if (MT_MASK(m->type) == MT_KEYPAD) {
-      fetch_numeric_target(m->data);
-      plot_printf(button.text, sizeof button.text, m->label, uistat.text);
+      const menuitem_t *k = m;
+#ifdef __BURST__
+      k = burst_item(k);
+#endif
+      fetch_numeric_target(k->data);
+      plot_printf(button.text, sizeof button.text, k->label, uistat.text);
       text = button.text;
     }
 
