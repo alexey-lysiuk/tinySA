@@ -1202,6 +1202,23 @@ static uint8_t SI4463_channel = 0;
 static uint8_t SI4463_in_tx_mode = false;
 //int SI4463_R = 5;
 static int SI4463_output_level = 0x20;
+#ifdef __BURST__
+static uint8_t SI4463_burst = false;          // GPIO1 is the OOK input keyed by TIM8 on PB9, so CTS is polled over SPI
+
+static uint8_t SI4463_read_CTS_SPI(void)
+{
+  set_SPI_mode(SPI_MODE_SI);
+  while (SPI_RX_IS_NOT_EMPTY(SI4432_SPI))
+    (void)SPI_READ_8BIT(SI4432_SPI);          // a lingering byte would be taken for the CTS
+  SI_CS_LOW;
+  SPI_WRITE_8BIT(SI4432_SPI, SI446X_CMD_READ_CMD_BUFF);
+  SPI_WRITE_8BIT(SI4432_SPI, 0xFF);
+  while (SPI_IS_BUSY(SI4432_SPI));
+  uint8_t cts = SPI_READ_16BIT(SI4432_SPI) >> 8;   // drop SI446X_CMD_READ_CMD_BUFF
+  SI_CS_HIGH;
+  return cts;
+}
+#endif
 
 static si446x_state_t SI4463_get_state(void);
 static int SI4463_set_state(si446x_state_t);
@@ -1222,6 +1239,15 @@ extern volatile int sleep;
 
 int SI4463_wait_CTS(void) {
   int t=0;
+#ifdef __BURST__
+  if (SI4463_burst) {                           // CTS over SPI: GPIO1 is the burst input
+    while (SI4463_read_CTS_SPI() != 0xFF) {
+      if (++t >= SI4463_CTS_TIMEOUT/16)
+        return -1;
+    }
+    return 0;
+  }
+#endif
   while (!SI4463_READ_CTS) {
     t++;
     if (t >=SI4463_CTS_TIMEOUT)
@@ -1370,14 +1396,30 @@ int SI4463_do_api(void* data, uint8_t len, void* out, uint8_t outLen)
 
   while (SPI_RX_IS_NOT_EMPTY(SI4432_SPI))
     (void)SPI_READ_8BIT(SI4432_SPI);      // Remove lingering bytes from SPI RX buffer
+#ifdef __BURST__
+  int t = 0;
+  if (!SI4463_burst)                       // While bursting CTS is checked in the response read itself
+#endif
   if (SI4463_WAIT_CTS)  return -1;         // Wait for CTS
 
+#ifdef __BURST__
+read_again:
+#endif
   SI_CS_LOW;
 #if 1
   SPI_WRITE_8BIT(SI4432_SPI, SI446X_CMD_READ_CMD_BUFF);
   SPI_WRITE_8BIT(SI4432_SPI, 0xFF);
   while (SPI_IS_BUSY(SI4432_SPI));
+#ifdef __BURST__
+  if ((SPI_READ_16BIT(SI4432_SPI) >> 8) != 0xFF) {   // drop SI446X_CMD_READ_CMD_BUFF, the response follows only a CTS of 0xFF
+    SI_CS_HIGH;
+    if (++t >= SI4463_CTS_TIMEOUT/16)
+      return -1;
+    goto read_again;
+  }
+#else
   SPI_READ_16BIT(SI4432_SPI);        // drop SI446X_CMD_READ_CMD_BUFF and CTS 0xFF
+#endif
 #else
   shiftOut( SI446X_CMD_READ_CMD_BUFF );
   shiftIn();                         // Should always be 0xFF
@@ -1508,6 +1550,73 @@ void SI4463_set_gpio(int i, int s)
   SI4463_refresh_gpio();
 }
 
+#ifdef __BURST__
+//
+// Burst: TIM8_CH3 on PB9 (AF10) drives GPIO1, the TX direct mode OOK input, while the Si4468 stays in TX.
+// GPIO1 is the CTS output to PB9 otherwise, so PB9 only drives while GPIO1 is an input.
+//
+void SI4463_burst_stop(void)
+{
+  TIM8->CCMR2 = TIM_CCMR2_OC3M_2;               // force inactive: carrier off
+  TIM8->CR1 = 0;
+}
+
+static void SI4463_burst_release_pin(void)
+{
+  SI4463_burst_stop();
+  palSetLineMode(LINE_RX_CTS, PAL_MODE_INPUT_PULLUP);    // stop driving before GPIO1 is the CTS output again
+  gpio_state[1] = SI446X_GPIO_MODE_CTS;
+}
+
+void SI4463_burst_mode(int on)
+{
+  if (on == SI4463_burst)
+    return;
+  if (on) {
+    palSetLineMode(LINE_RX_CTS, PAL_MODE_INPUT_PULLDOWN);  // keeps the carrier off once GPIO1 is an input
+    gpio_state[1] = SI446X_GPIO_MODE_INPUT;
+    SI4463_refresh_gpio();
+    SI4463_burst = true;                         // from here CTS is polled over SPI
+    SI4463_wait_CTS();
+    rccEnableTIM8(false);
+    SI4463_burst_stop();
+    palSetLineMode(LINE_RX_CTS, PAL_MODE_ALTERNATE(10) | PAL_STM32_OSPEED_HIGHEST);
+  } else {
+    SI4463_burst_release_pin();
+    SI4463_refresh_gpio();                       // still polls CTS over SPI
+    SI4463_burst = false;
+  }
+}
+
+// count 0: continuous, else count bursts. Each period is off first, then on.
+void SI4463_burst_start(float period, float on_time, uint16_t count)
+{
+  if (!SI4463_burst)
+    return;
+  uint32_t ticks = period * STM32_TIM8CLK;
+  uint32_t psc = ticks >> 16;                    // 16 bit period
+  uint32_t arr = ticks / (psc + 1);
+  uint32_t on = on_time * STM32_TIM8CLK / (psc + 1) + 0.5;
+  if (arr < 2)
+    arr = 2;
+  if (on < 1)
+    on = 1;
+  if (on >= arr)
+    on = arr - 1;
+  TIM8->CR1 = 0;
+  TIM8->PSC = psc;
+  TIM8->ARR = arr - 1;
+  TIM8->CCR3 = arr - on;
+  TIM8->RCR = count ? count - 1 : 0;
+  TIM8->CCMR2 = TIM_CCMR2_OC3M_2 | TIM_CCMR2_OC3M_1 | TIM_CCMR2_OC3M_0 | TIM_CCMR2_OC3PE;   // PWM mode 2: on from CCR3, off when stopped at 0
+  TIM8->CCER = TIM_CCER_CC3E;
+  TIM8->BDTR = TIM_BDTR_MOE;
+  TIM8->EGR = TIM_EGR_UG;                        // load prescaler, period and repetition counter
+  TIM8->SR = 0;
+  TIM8->CR1 = TIM_CR1_ARPE | TIM_CR1_CEN | (count ? TIM_CR1_OPM : 0);   // one pulse mode stops after count periods
+}
+#endif
+
 #if 0
 static void SI4463_clear_FIFO(void)
 {
@@ -1558,10 +1667,20 @@ void SI4463_start_tx(uint8_t CHANNEL)
   {
     uint8_t data[] = {
      SI446X_CMD_SET_PROPERTY, 0x20, 0x01, 0x00,
+#ifdef __BURST__
+     SI4463_burst ? 0xA9 : 0x00,  // OOK in asynchronous direct mode from GPIO1 (burst) or CW mode
+#else
      0x00,  // CW mode
+#endif
     };
     SI4463_do_api(data, sizeof(data), NULL, 0);
   }
+#ifdef __BURST__
+  if (SI4463_burst) {               // OOK also shifts by MODEM_FREQ_DEV (300kHz from the RX config): keep the carrier frequency
+    static const uint8_t no_deviation[] = { SI446X_CMD_SET_PROPERTY, 0x20, 0x03, 0x0a, 0x00, 0x00, 0x00 };
+    SI4463_do_api((void *)no_deviation, sizeof(no_deviation), NULL, 0);
+  }
+#endif
 #endif
 #if 1
   {
@@ -2612,6 +2731,12 @@ freq_t SI4463_set_freq(freq_t freq)
 
 void SI4463_init_rx(void)
 {
+#ifdef __BURST__
+  if (SI4463_burst) {                       // the reset makes GPIO1 the CTS output again
+    SI4463_burst_release_pin();
+    SI4463_burst = false;
+  }
+#endif
  reset:
   SI_SDN_LOW;
   my_microsecond_delay(10000);

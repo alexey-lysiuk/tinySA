@@ -118,6 +118,7 @@
 #define __NOISE_FIGURE__
 #define __VBW__
 #define __SWEEP_RESTART__
+#define __BURST__                 // Burst modulation: TIM8 on PB9 keys the OOK of the Si4468 (GPIO1, normally CTS)
 // #define DIRECT_CORRECTION        // Not enough space for config in one flash page.
 #define DB_PER_DEGREE_BELOW               0.056
 #define DB_PER_DEGREE_ABOVE               0.069
@@ -349,7 +350,11 @@ enum {
 #ifdef TINYSA4
   MO_NFM2, MO_NFM3,
 #endif
-  MO_WFM, MO_EXTERNAL, MO_MAX
+  MO_WFM, MO_EXTERNAL,
+#ifdef __BURST__
+  MO_BURST,
+#endif
+  MO_MAX
 };
 
 #define MODE_OUTPUT(x)  ((x) == M_GENLOW || (x) == M_GENHIGH )
@@ -507,6 +512,16 @@ void toggle_tracking_output(void);
 extern int32_t frequencyExtra;
 void set_modulation(int);
 void set_modulation_frequency(float);
+#ifdef __BURST__
+#define BURST_MIN_TIME          1e-6        // shortest ON and OFF time [s]
+#define BURST_MAX_PERIOD        89.0        // TIM8: 65536 * 65536 ticks at 48 MHz
+#define BURST_DEFAULT_PERIOD    1e-3
+#define BURST_DEFAULT_ON_TIME   100e-6
+void set_burst_period(float);
+void set_burst_on_time(float);
+void set_burst_count(int);
+void burst_trigger(void);
+#endif
 int search_maximum(int m, freq_t center, int span);
 //extern int setting.modulation;
 void set_measurement(int);
@@ -1281,6 +1296,9 @@ typedef struct setting
   bool pulse;                  // bool
   bool stored[TRACES_MAX];     // enum
   bool normalized[TRACES_MAX];     // enum
+#ifdef __BURST__
+  float burst_period;          // seconds, fills an alignment hole so old presets stay valid
+#endif
 #ifdef __BANDS__
   band_t bands[BANDS_MAX];
 #endif
@@ -1352,6 +1370,9 @@ typedef struct setting
   uint16_t modulation_depth_x100;      // AM (30% - 100%) multiplied by 100
   uint16_t modulation_deviation_div100;  // FM (2.5kHz to 100kHz) divided by 100
 #endif
+#ifdef __BURST__
+  uint16_t burst_count;         // 0 = continuous, fills an alignment hole
+#endif
   int decay;                      // KM_DECAY   < 1000000
   int attack;                     // KM_ATTACK  <   20000
 
@@ -1372,6 +1393,9 @@ typedef struct setting
 
   float unit_scale;
   float normalize_level;     // Level to set normalize to, zero if not doing anything
+#ifdef __BURST__
+  float burst_on_time;         // seconds, fills an alignment hole
+#endif
 
   freq_t frequency_step;
   freq_t frequency0;
@@ -1490,6 +1514,9 @@ typedef char assert_config[sizeof(config_t)> SAVE_CONFIG_SIZE ? -1 : 1];        
 #endif
 
 typedef char assert_setting[sizeof(setting_t)> SAVE_PROP_CONFIG_SIZE ? -1 : 1]; // Check setting size
+#ifdef __BURST__
+typedef char assert_burst_setting[sizeof(setting_t) == 1584 ? 1 : -1]; // The burst fields fill alignment holes: presets saved before them stay valid
+#endif
 
 // Should include all save slots
 #define SAVE_CONFIG_AREA_SIZE   (SAVE_CONFIG_SIZE + SAVEAREA_MAX * SAVE_PROP_CONFIG_SIZE)
@@ -1993,6 +2020,11 @@ extern bool ADF4351_frequency_changed;
 extern bool SI4463_frequency_changed;
 extern bool SI4463_offset_changed;
 extern int SI4463_is_in_tx_mode(void);
+#ifdef __BURST__
+extern void SI4463_burst_mode(int on);
+extern void SI4463_burst_start(float period, float on_time, uint16_t count);
+extern void SI4463_burst_stop(void);
+#endif
 extern int16_t SI4463_noise_correction_x10;
 void switch_SI4463_RSSI_correction(bool);
 extern int old_R;
