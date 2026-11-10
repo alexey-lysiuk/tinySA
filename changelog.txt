@@ -1,3 +1,7 @@
+V1.4305 2026-11-10 For all tinySA Ultra models
+- Signal generator: BURST modulation switches the output on and off: ON TIME of every PERIOD, continuously or COUNT bursts. With MODULATION > BURST selected the FREQ, AM DEPTH and FM DEVIATION buttons set PERIOD (2us..89s), ON TIME and COUNT (0 = continuous) and START SWEEP becomes START BURST, which starts the COUNT bursts or restarts the continuous bursts. The frequency is not changed during a burst. Burst works up to 1.13 GHz and above it with OUTPUT "Highest accuracy", not with "Cleanest signal" (MOD: BURST N/A)
+- Console: "modulation burst|period|ontime|count|trigger", e.g. "modulation period 1m", "modulation ontime 100u", "modulation count 5", "modulation trigger"
+
 V1.4302 2026-11-09 For all tinySA models
 - Signal generator: PRESET in the generator menu loads and stores presets (on the tinySA Ultra also from and to SD). A loaded preset opens the menu of its own mode, and a signal generator preset loaded from the menu starts with the output off
 - The SW button of the signal generator shows the start and stop frequency of the sweep (Ultra only)
