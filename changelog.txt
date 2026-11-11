@@ -1,3 +1,12 @@
+V1.4311 2026-11-11 For all tinySA models
+- Console: "measure {mode} [value]..." starts a measurement of the MEASURE menu, the values the menu asks for are the arguments, e.g. "measure channel_power 5800M 20M". Modes: off|harmonic|oip3|phase_noise|snr|3db_width|occupied_width|am|fm|thd|channel_power|linear, on the Ultra also nf_tinysa|nf_store|nf_validate|nf_amp
+- Console: "recall defaults" loads the factory settings in low input mode, as PRESET > LOAD DEFAULTS, but does not store them as the startup preset
+- Console: "freq {frequency}" sets zero span at the frequency, as "sweep cw" (it only paused the sweep)
+- Console: after "scan {start} {stop}" the sweep is back on its own frequencies and points, the frequencies of the scan stayed and following commands such as "frequencies" and "scan" used wrong frequencies
+- Console: with MULTI BAND on, "scan {start} {stop}" scans the given range instead of the bands. The next scan took about 30 s and "sweep" showed a wrong stop frequency (Ultra only)
+- Console: "hop {start} {stop} {points}" measures exactly that number of points, the last one at stop (it measured one more), and an invalid range no longer leaves the sweep paused (Ultra only)
+- Console: the usage text of "if" and "sd_read" showed "usage:" twice
+
 V1.4305 2026-11-10 For all tinySA Ultra models
 - Signal generator: BURST modulation switches the output on and off: ON TIME of every PERIOD, continuously or COUNT bursts. With MODULATION > BURST selected the FREQ, AM DEPTH and FM DEVIATION buttons set PERIOD (2us..89s), ON TIME and COUNT (0 = continuous) and START SWEEP becomes START BURST, which starts the COUNT bursts or restarts the continuous bursts. The frequency is not changed during a burst. Burst works up to 1.13 GHz and above it with OUTPUT "Highest accuracy", not with "Cleanest signal" (MOD: BURST N/A)
 - Console: "modulation burst|period|ontime|count|trigger", e.g. "modulation period 1m", "modulation ontime 100u", "modulation count 5", "modulation trigger"
