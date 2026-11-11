@@ -2817,6 +2817,7 @@ static const VNAShellCommand commands[] =
     {"trigger"     , cmd_trigger     , CMD_RUN_IN_LOAD},
     {"marker"      , cmd_marker      , CMD_RUN_IN_LOAD},
     {"channel"     , cmd_channel     , CMD_WAIT_MUTEX },
+    {"measure"     , cmd_measure     , CMD_WAIT_MUTEX | CMD_RUN_IN_LOAD},
 #ifdef __DRAW_LINE__
     {"line"        , cmd_line        , CMD_RUN_IN_LOAD},
 #endif

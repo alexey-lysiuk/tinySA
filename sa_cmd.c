@@ -176,6 +176,29 @@ VNA_SHELL_FUNCTION(cmd_calc )
   set_average(t, m);
 }
 
+VNA_SHELL_FUNCTION(cmd_measure)
+{
+  // The modes of the MEASURE menu in M_xxx order, the values are the ones its keypads ask for
+  static const char cmd_meas[] = "off|harmonic|oip3|phase_noise|snr|3db_width|occupied_width|am|fm|thd|channel_power|"
+#ifdef __NOISE_FIGURE__
+                                 "nf_tinysa|nf_store|nf_validate|nf_amp|"
+#endif
+                                 "linear";
+  static const uint8_t meas_values[] = {0, 1, 2, 2, 2, 0, 1, 2, 3, 0, 2,
+#ifdef __NOISE_FIGURE__
+                                        1, 0, 0, 1,
+#endif
+                                        0};
+  int m = argc && !MODE_OUTPUT(setting.mode) ? get_str_index(argv[0], cmd_meas) : -1;   // only in the spectrum analyzer, as the menu
+  if (m < 0 || argc - 1 < meas_values[m]) {
+    usage_printf("measure %s [value]..\r\n", cmd_meas);
+    return;
+  }
+  if (m == sizeof(meas_values) - 1)
+    m = M_LINEARITY;
+  ui_measure(m, argc - 1, argv + 1);
+}
+
 int generic_option_cmd( const char *cmd, const char *cmd_list, int argc, char *argv)
 {
   if (argc != 1) {
