@@ -609,12 +609,6 @@ VNA_SHELL_FUNCTION(cmd_reset)
     ;
 }
 
-int set_frequency(freq_t freq)
-{
-  (void) freq;
-  return 1;
-}
-
 // Use macro, std isdigit more big
 #define _isdigit(c) (c >= '0' && c <= '9')
 // Rewrite universal standart str to value functions to more compact
@@ -737,15 +731,10 @@ my_atof(const char *p)
 VNA_SHELL_FUNCTION(cmd_freq)
 {
   if (argc != 1 || argv[0][0] == '?') {
-    goto usage;
+    usage_printf("freq {frequency(Hz)}\r\n");
+    return;
   }
-  freq_t freq = my_atoui(argv[0]);
-
-  pause_sweep();
-  set_frequency(freq);
-  return;
-usage:
-  usage_printf("freq {frequency(Hz)}\r\n");
+  set_sweep_frequency(ST_CW, my_atoui(argv[0]));   // same as sweep cw
 }
 
 #ifdef __USE_RTC__
@@ -1311,7 +1300,7 @@ VNA_SHELL_FUNCTION(cmd_sd_read)
   char *buf = (char *)spi_buffer;
   if (argc != 1 || argv[0][0] == '?')
   {
-     usage_printf("usage: sd_read {filename}\r\n");
+     usage_printf("sd_read {filename}\r\n");
      return;
   }
   const char *filename = argv[0];
@@ -1690,11 +1679,13 @@ void set_sweep_points(uint16_t points){
 
 VNA_SHELL_FUNCTION(cmd_scan)
 {
-  freq_t start = get_sweep_frequency(ST_START);
-  freq_t stop  = get_sweep_frequency(ST_STOP);
+  freq_t start, stop;
   uint32_t old_points = sweep_points;
   uint32_t i;
   int repeat = 1;
+#ifdef __BANDS__
+  uint8_t old_multi_band = setting.multi_band;
+#endif
   if (argc == 0)
     goto do_scan;
   if (argc == 1) {
@@ -1720,6 +1711,9 @@ VNA_SHELL_FUNCTION(cmd_scan)
     }
     sweep_points = points;
   }
+#ifdef __BANDS__
+  setting.multi_band = false;   // scan start..stop, not the bands
+#endif
   set_frequencies(start, stop, sweep_points);
 do_scan:
   pause_sweep();
@@ -1742,60 +1736,57 @@ do_scan:
       }
     }
   }
-  sweep_points = old_points;
+  if (argc >= 2) {              // back to the frequencies of the sweep
+#ifdef __BANDS__
+    setting.multi_band = old_multi_band;
+#endif
+    sweep_points = old_points;
+    update_frequencies();
+  }
 }
 
 #ifdef TINYSA4
 VNA_SHELL_FUNCTION(cmd_hop)
 {
-  freq_t start, stop, step = 0;
   if (argc < 1 || argc > 4) {
     usage_printf("hop {start(Hz)} {stop(Hz)} {step(Hz) | points} [outmask]\r\n");
     return;
   }
-  start = my_atoui(argv[0]);
-  if (argc > 1)
-    stop = my_atoui(argv[1]);
-  else {
-    stop = start;
-    step = 1; // just to stop the loop
-  }
-
+  freq_t start = my_atoui(argv[0]), stop = start, step = 1;
+  // Output data after if set (faster data recive)
+  uint16_t mask = 3;
+  if (argc == 2)                // hop {frequency} {outmask}
+    mask = my_atoui(argv[1]);
   if (argc >= 3) {
+    stop = my_atoui(argv[1]);
     step = my_atoui(argv[2]);
-    if (step <= POINTS_COUNT && step > 0) {
-      step = (stop - start) / step;
-    }
-  } else
-    step = 1;
-  if (step == 0)
-    step = 1;
+  }
+  if (argc == 4)
+    mask = my_atoui(argv[3]);
+  if (start > stop) {
+      shell_printf("frequency range is invalid\r\n");
+      return;
+  }
+  // point i of n is at start + mul * i / div
+  freq_t mul = stop - start;
+  uint32_t n = step, div = n > 1 ? n - 1 : 1;   // a number of points, the last one at stop
+  if (step > POINTS_COUNT) {    // a step in Hz
+    n = mul / step + 1;
+    mul = step;
+    div = 1;
+  }
   int old_sweep = sweep_mode;
   if (old_sweep & SWEEP_ENABLE)
     pause_sweep();
   else
     dirty = true;
-  // Output data after if set (faster data recive)
-  uint16_t mask = 3;
-  if (argc == 4) {
-    mask = my_atoui(argv[3]);
-  }
-
-  if (argc==2) {
-    mask = stop;
-    stop = start;
-  }
-
-  if (start > stop) {
-      shell_printf("frequency range is invalid\r\n");
-      return;
-  }
   freq_t old_frequency_step = setting.frequency_step;
   setting.frequency_step = setting.rbw_x10*100;
   if (mask) {
     int old_vbwSteps = vbwSteps;
 //    vbwSteps = 1;
-    for (freq_t f = start; f <= stop; f += step) {
+    for (uint32_t i = 0; i < n; i++) {
+        freq_t f = start + mul * i / div;
         if (mask & 1) shell_printf("%U ", f);
         float v = PURE_TO_float(perform(false, 0, f, false));
         if (mask & 2) shell_printf("%f ", v);
