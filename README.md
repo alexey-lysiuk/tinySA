@@ -27,23 +27,26 @@ Use github issue list only for firmware bugs and preferrably cross post to: http
 
 ## Prepare ARM Cross Tools
 
-**UPDATE**: Recent gcc version works to build tinySA, no need old version.
+The released firmware is built with **Arm GNU Toolchain 11.3.Rel1** (arm-none-eabi-gcc 11.3.1 20220712), on Windows the "GNU Tools ARM Embedded\11.3 2022.08" toolchain of ChibiStudio. Use exactly this version. Parts of the firmware depend on how fast the compiled code runs, and firmware built with other gcc versions is known to show noise or fail the self test (issues #70 and #152).
+
+All versions are on the [Arm GNU Toolchain downloads](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) page. Check the version in use with
+
+    $ arm-none-eabi-gcc --version
 
 ### MacOSX
 
-Install cross tools and firmware updating tool.
+Install the cross tools and the firmware updating tool.
 
-    $ brew tap px4/px4
-    $ brew install gcc-arm-none-eabi-80
+    $ curl -LO https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-darwin-x86_64-arm-none-eabi.tar.xz
+    $ sudo tar xfJ arm-gnu-toolchain-11.3.rel1-darwin-x86_64-arm-none-eabi.tar.xz -C /usr/local
+    $ PATH=/usr/local/arm-gnu-toolchain-11.3.rel1-darwin-x86_64-arm-none-eabi/bin:$PATH
     $ brew install dfu-util
 
 ### Linux (ubuntu)
 
-Download arm cross tools from [here](https://developer.arm.com/tools-and-software/open-source-software/developer-tools/gnu-toolchain/gnu-rm/downloads).
-
-    $ wget https://developer.arm.com/-/media/Files/downloads/gnu-rm/8-2018q4/gcc-arm-none-eabi-8-2018-q4-major-linux.tar.bz2
-    $ sudo tar xfj gcc-arm-none-eabi-8-2018-q4-major-linux.tar.bz2 -C /usr/local
-    $ PATH=/usr/local/gcc-arm-none-eabi-8-2018-q4-major/bin:$PATH
+    $ wget https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
+    $ sudo tar xfJ arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz -C /usr/local
+    $ PATH=/usr/local/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi/bin:$PATH
     $ sudo apt install -y dfu-util
 
 ## Fetch source code
@@ -66,7 +69,7 @@ For tinySA Ultra use this command
 
 ### Build firmware using docker
 
-Using [this docker image](https://hub.docker.com/r/edy555/arm-embedded) and without installing arm toolchain, you can build the firmware.
+Using [this docker image](https://hub.docker.com/r/edy555/arm-embedded) and without installing arm toolchain, you can build the firmware. Note that this image has gcc 8.2, not the release toolchain (see above).
 
     $ cd tinySA
     $ docker run -it --rm -v $(PWD):/work edy555/arm-embedded:8.2 make
