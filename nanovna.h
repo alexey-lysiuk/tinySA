@@ -1654,6 +1654,7 @@ void menu_invoke(int item);
 extern char    kp_buf[];
 void ui_set_keypad_text(const char *text);
 void set_numeric_value(void);
+void ui_measure(int m, int argc, char *argv[]);
 
 void ui_mode_normal(void);
 void ui_mode_menu(void);

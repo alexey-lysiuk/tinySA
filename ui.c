@@ -3012,6 +3012,24 @@ static UI_FUNCTION_CALLBACK(menu_clearconfig_cb)
 float nf_gain;
 const char * const averageText[] = { "OFF", "MINH", "MAXH", "MAXD", " AVER4", "A16", "AVER", "QUASI", "TABLE", "DECONV"};
 
+// measure console command: the values the MEASURE menu asks with a keypad come from its arguments
+static char **measure_argv;
+static int measure_argc;
+
+static void measure_keypad(int mode, char *help)
+{
+  if (measure_argv == NULL) {
+    kp_help_text = help;
+    ui_mode_keypad(mode);
+    return;
+  }
+  char *arg = measure_argc-- > 0 ? *measure_argv++ : "0";  // only an optional value can be missing
+  keypad_mode = mode;           // as if typed on the keypad
+  uistat.value = my_atof(arg);
+  uistat.freq_value = my_atoui(arg);
+  set_numeric_value();
+}
+
 static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
 {
   (void)item;
@@ -3050,12 +3068,10 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
       for (int i = 1; i< MARKERS_MAX; i++) {
         markers[i].mtype = M_DELTA;
       }
-      kp_help_text = "Frequency of fundamental";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Frequency of fundamental");
       freq_t fundamental = uistat.value;
 #ifdef __BANDS__
-      kp_help_text = "Span (0=full span)";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Span (0=full span)");
       freq_t half_span = uistat.value/2;
       if (half_span > fundamental/2)
         half_span = fundamental/2;
@@ -3085,11 +3101,9 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
         markers[i].enabled = M_ENABLED;
       }
       markers[1].mtype = M_TRACKING;
-      kp_help_text = "Frequency of left signal";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Frequency of left signal");
       freq_t left =  uistat.value;
-      kp_help_text = "Right signal";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Right signal");
       freq_t right =  uistat.value;
       set_sweep_frequency(ST_CENTER, (left+right)/2);
       freq_t local_span = (right - left)*10;
@@ -3108,10 +3122,8 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
       reset_settings(setting.mode);
       markers[1].enabled = M_ENABLED;
       markers[1].mtype = M_DELTA | M_NOISE;
-      kp_help_text = "Frequency of signal";
-      ui_mode_keypad(KM_CENTER);
-      kp_help_text = "Frequency offset";
-      ui_mode_keypad(KM_SPAN);
+      measure_keypad(KM_CENTER, "Frequency of signal");
+      measure_keypad(KM_SPAN, "Frequency offset");
       set_sweep_frequency(ST_SPAN, uistat.value*4);
 //      set_measurement(M_PHASE_NOISE);
       set_average(0,AV_4);
@@ -3119,10 +3131,8 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
       break;
     case M_SNR:                             // STop band measurement
       reset_settings(setting.mode);
-      kp_help_text = "Frequency of signal";
-      ui_mode_keypad(KM_CENTER);
-      kp_help_text = "Bandwidth";
-      ui_mode_keypad(KM_SPAN);
+      measure_keypad(KM_CENTER, "Frequency of signal");
+      measure_keypad(KM_SPAN, "Bandwidth");
       set_sweep_frequency(ST_SPAN, uistat.value*3);
 //      set_measurement(M_SNR);
       set_average(0,AV_4);
@@ -3145,8 +3155,7 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
 //      reset_settings(setting.mode);
       markers[1].enabled = M_ENABLED;
       markers[2].enabled = M_ENABLED;
-      kp_help_text = "dBc";
-      ui_mode_keypad(KM_LEVEL);
+      measure_keypad(KM_LEVEL, "dBc");
       set_measurement(M_WIDTH);
 //      SetAverage(4);
 
@@ -3173,17 +3182,15 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
       freq_t center, span;
       markers[0].mtype = M_NORMAL; // M_REFERENCE | M_TRACKING;           // Not M_TRACKING!!!!
 #endif
-      kp_help_text = "Frequency of signal";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Frequency of signal");
 #ifdef TINYSA3
       center = uistat.value;
 #endif
 #ifdef TINYSA4
-      kp_help_text = "Modulation frequency: 500hz .. 10kHz";
+      measure_keypad(KM_SPAN, "Modulation frequency: 500hz .. 10kHz");
 #else
-      kp_help_text = "Modulation frequency: 3 .. 10kHz";
+      measure_keypad(KM_SPAN, "Modulation frequency: 3 .. 10kHz");
 #endif
-      ui_mode_keypad(KM_SPAN);
       span = uistat.value;
 #ifdef TINYSA4
       if (span < 500 || span > 10000)
@@ -3208,31 +3215,27 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
         markers[i].enabled = M_ENABLED;
       }
       markers[0].mtype = M_NORMAL;              /// Not M_TRACKING !!!!
-      kp_help_text = "Frequency of signal";
-      ui_mode_keypad(KM_CENTER);
+      measure_keypad(KM_CENTER, "Frequency of signal");
       set_marker_frequency(0, uistat.value);
 #ifdef TINYSA4
-      kp_help_text = "Modulation frequency: 50Hz .. 20kHz";
-      ui_mode_keypad(KM_SPAN);
+      measure_keypad(KM_SPAN, "Modulation frequency: 50Hz .. 20kHz");
       if (uistat.value < 50 || uistat.value > 20000)
         goto no_measurement;
       set_RBW(uistat.value/300);
 #else
-      kp_help_text = "Modulation frequency: 1 .. 2.5kHz";
-      ui_mode_keypad(KM_SPAN);
+      measure_keypad(KM_SPAN, "Modulation frequency: 1 .. 2.5kHz");
       if (uistat.value < 1000 || uistat.value > 2500)
         goto no_measurement;
       set_RBW(uistat.value/100);
 #endif
       // actual_rbw_x10
 #ifdef TINYSA4
-      kp_help_text = "Frequency deviation: 3 .. 500kHz";
+      measure_keypad(KM_SPAN, "Frequency deviation: 3 .. 500kHz");
 #define MINIMUM_DEVIATION   1500
 #else
-      kp_help_text = "Frequency deviation: 500Hz .. 500kHz";
+      measure_keypad(KM_SPAN, "Frequency deviation: 500Hz .. 500kHz");
 #define MINIMUM_DEVIATION   12000
 #endif
-      ui_mode_keypad(KM_SPAN);
       if (uistat.value < MINIMUM_DEVIATION)
         uistat.value = MINIMUM_DEVIATION;   // minimum span
       set_sweep_frequency(ST_SPAN, uistat.value*4);
@@ -3246,10 +3249,8 @@ static UI_FUNCTION_ADV_CALLBACK(menu_measure_acb)
     case M_CP:                             // channel power
       reset_settings(setting.mode);
       markers[0].enabled = M_DISABLED;
-      kp_help_text = "Channel frequency";
-      ui_mode_keypad(KM_CENTER);
-      kp_help_text = "Channel width";
-      ui_mode_keypad(KM_SPAN);
+      measure_keypad(KM_CENTER, "Channel frequency");
+      measure_keypad(KM_SPAN, "Channel width");
       set_sweep_frequency(ST_SPAN, uistat.value*3);
 //      set_measurement(M_CP);
       break;
@@ -3280,9 +3281,8 @@ validate:
       reset_settings(setting.mode);
       set_refer_output(-1);
 #endif
-      kp_help_text = "Amplifier Gain ";
       float old_gain = setting.external_gain;
-      ui_mode_keypad(KM_EXT_GAIN);
+      measure_keypad(KM_EXT_GAIN, "Amplifier Gain ");
       nf_gain = setting.external_gain;
       setting.external_gain = old_gain;
   noise_figure:
@@ -3291,8 +3291,7 @@ validate:
       set_extra_lna(true);
       set_attenuation(0);
       if (data == M_NF_TINYSA) {
-        kp_help_text = "Noise center frequency";
-        ui_mode_keypad(KM_CENTER);
+        measure_keypad(KM_CENTER, "Noise center frequency");
         set_marker_frequency(0, uistat.value);
 #if 0
         kp_help_text = "Noise span";
@@ -3330,6 +3329,16 @@ validate:
 leave:
   set_measurement(data);
 //  draw_cal_status();
+}
+
+void ui_measure(int m, int argc, char *argv[])
+{
+  ui_mode_normal();
+  menu_current_level = 0;
+  measure_argc = argc;
+  measure_argv = argv;
+  menu_measure_acb(0, m, NULL);
+  measure_argv = NULL;
 }
 
 static UI_FUNCTION_ADV_CALLBACK(menu_atten_acb)
