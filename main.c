@@ -2176,17 +2176,24 @@ VNA_SHELL_FUNCTION(cmd_recall)
   if (argc != 1 || argv[0][0] == '?')
     goto usage;
 
-  int id = my_atoi(argv[0]);
-  if (id < 0 || id >= SAVEAREA_MAX)
-    goto usage;
-  // Check for success
-  if (caldata_recall(id) == -1)
-    shell_printf("Err, default load\r\n");
+  if (get_str_index(argv[0], "defaults") == 0) {
+    reset_settings(M_LOW);      // as PRESET > LOAD DEFAULTS, but the startup preset stays
+    set_refer_output(-1);
+    menu_move_top();
+    ui_mode_normal();
+  } else {
+    int id = my_atoi(argv[0]);
+    if (id < 0 || id >= SAVEAREA_MAX)
+      goto usage;
+    // Check for success
+    if (caldata_recall(id) == -1)
+      shell_printf("Err, default load\r\n");
+  }
   update_frequencies();
   redraw_request |= REDRAW_CAL_STATUS;
   return;
  usage:
-  shell_printf("recall {id}\r\n");
+  shell_printf("recall {id}|defaults\r\n");
 }
 
 VNA_SHELL_FUNCTION(cmd_channel)
